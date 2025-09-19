@@ -1,0 +1,8 @@
+#line 1 "C:\\Users\\elik\\Documents\\Arduino\\MiniExco_v_2_00_78\\.vscode\\arduino.json"
+{
+    "port":  "COM18",
+    "board":  "esp32-bluepad32:esp32:esp32s3",
+    "sketch":  "MiniExco_v_2_00_78.ino",
+    "configuration":  "FlashSize=16M,PSRAM=enabled,PartitionScheme=app3M_fat9M_16MB",
+    "output":  "build_cli"
+}

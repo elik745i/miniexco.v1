@@ -1,0 +1,398 @@
+2Pac — Gangsta Party (www.lightaudio.ru).mp3,0,9887914
+02. Anna Lunoe – 303.mp3,0,9753991
+01. Sadeness (Part II).flac,0,31135121
+13. Danay Suarez – Viaje En Dub.mp3,0,10276462
+Charlie Puth - Cheating On You.mp3,0,7972594
+Charlie Puth - No More Drama.mp3,0,5605853
+Charlie Puth Jungkook - Left And Right .mp3,0,3439740
+Cherry Blossom 13-06-2021 11-55.mp3,0,4288805
+Cherry Blossom 13-06-2021 11-58.mp3,0,5674967
+Cover.jpg,0,206346
+capture,1,0
+01. 2Chainz feat. Kendrick Lamar – Momma I Hit A Lick.mp3,0,7160621
+1.B.G. The Prince Of Rap - This Beat Is Hot (Club Mix) (www.hotplayer.ru).mp3,0,15640077
+2Pac — Do For Love (www.lightaudio.ru).mp3,0,11266134
+2WEI — Gangsta's Paradise (www.lightaudio.ru).mp3,0,6710379
+03. Bear Grillz feat. Bok Nero – Don’t Stop Get It.mp3,0,6947456
+04. BJ The Chicago Kid feat. Offset – Worryin' Bout Me.mp3,0,9640166
+05. BlocBoy JB – Mercedes.mp3,0,5075993
+06. BlumBros feat. MAKJ – LS6.mp3,0,7523152
+07. Bomba Estereo feat. Systema Solar – Carnavalera.mp3,0,9393564
+08. Bomby feat. Apache – Con Mucho Son.mp3,0,8273407
+09. Bonobo – Linked.mp3,0,14989973
+10. Bumbasee feat. ONEDUO – Tooth And Nail (ONEDUO Remix).mp3,0,6706119
+11. Burna Boy – Collateral Damage.mp3,0,8114573
+12. Chase & Status feat. Kabaka Pyramid – Murder Music.mp3,0,8788574
+14. DeeWunn feat. Leo Justi – Back It Up, Drop It.mp3,0,6937005
+15. Denzel Curry feat. Rick Ross – BIRDZ.mp3,0,8387305
+16. Deorro feat. Henry Fong and Elvis Crespo – Pica.mp3,0,8308960
+17. Diplo – Bubble Up.mp3,0,10201210
+18. Felix Jaehn feat. Breaking Beattz and Brother Leo – LIITA.mp3,0,10255624
+19. French Montana feat. Post Malone and Cardi B feat. Rvssian – Writing On The Wall.mp3,0,8262005
+20. Gente De Zona feat. El Micha – Hazle Completo El Cuento.mp3,0,8989204
+21. Gente De Zona feat. Zion and Lennox – Poquito A Poco.mp3,0,8382112
+Clann — 10. I Hold You (www.lightaudio.ru).mp3,0,22001416
+Coded_Channel_-_My_Life_Is_Going_On_Main_Title_Theme_from_La_Casa_De_Papel_59430130.mp3,0,8737878
+coldplay-feat.-beyonce-hymn-for-the-weekend.mp3,0,9976704
+Daft Punk — Get Lucky (www.lightaudio.ru).mp3,0,14788485
+DAFT PUNK — VERIDIS QUO (www.lightaudio.ru).mp3,0,9559085
+Daft Punk feat. Pharrell Williams, Nile Rodgers — Get Lucky (www.lightaudio.ru).mp3,0,9933889
+David Guetta — Love Don't Let Me Go (www.lightaudio.ru).mp3,0,8677922
+David Guetta — Love Is Gone (www.lightaudio.ru).mp3,0,11651702
+David Guetta — Play Hard (feat. Ne-Yo & Akon) (www.lightaudio.ru).mp3,0,8042624
+David Guetta feat. Sia — Titanium (feat. Sia) (www.lightaudio.ru).mp3,0,9804322
+David Guetta, Sia — Let's Love (www.lightaudio.ru).mp3,0,8027996
+Dido - Just Because (www.hotplayer.ru).mp3,0,9945383
+Dido - Life for Rent (www.hotplayer.ru).mp3,0,8844061
+Dido - Thank You (www.hotplayer.ru).mp3,0,8767783
+Dido - White Flag (www.hotplayer.ru) (1).mp3,0,9571310
+Dido - White Flag (www.hotplayer.ru).mp3,0,8622543
+DJ Danerston — Dangerous (www.lightaudio.ru).mp3,0,10045694
+Don Davis — Matrix Revolutions Main Title (www.lightaudio.ru).mp3,0,3266396
+Don't Call Me Angel - Ariana Grande, Miley Cyrus, Lana Del Rey  (8D AUDIO) (www.hotplayer.ru).mp3,0,2993885
+DOPFunk — I aint mad at cha [2pac, Danny Boy Type Beat] 90s Smooth RnB Hip Hop (www.lightaudio.ru).mp3,0,3865508
+Drenchill feat. Indiiana — Freed from Desire (www.lightaudio.ru).mp3,0,6477367
+Dua_Lipa_-_Physical_68209450.mp3,0,7842420
+Eagles - Hotel California (Live TV Broadcast Recorded at Warner Bros. Studios, Burbank, CA 1994) (www.hotplayer.ru).mp3,0,17631652
+Ed_Sheeran_-_Bad_Habits_73016992.mp3,0,9329311
+EDEN - all you need is love (www.hotplayer.ru).mp3,0,10020615
+EDEN - drugs (www.hotplayer.ru).mp3,0,13550176
+EDEN - Fake Love (www.hotplayer.ru).mp3,0,7481513
+EDEN - rock   roll (www.hotplayer.ru).mp3,0,11845007
+Eden - Sao Visente (www.hotplayer.ru).mp3,0,14796844
+Eden - Shape of My Heart (www.hotplayer.ru).mp3,0,8980942
+EDEN - XO (www.hotplayer.ru).mp3,0,6390697
+Egor_Krid_-_Golos_72777587.mp3,0,7465213
+Egor_Krid_MORGENSHTERN_-_Vesjolaya_pesnya_69139855.mp3,0,7574905
+Ellie Bennett — everything i ();
+          if (!path.startsWith("/")) path = "/" + path;
+          if (path.endsWith("/") && path.length() > 1) path.remove(path.length() - 1);
+      }
+      Serial.print("Listing path: "); Serial.println(path);
+
+      DynamicJsonDocument doc(4096); // Larger buffer for more files
+      JsonArray arr = doc.to<JsonArray>();
+
+      File dir = SD.open(path);
+      if (!dir || !dir.isDirectory()) {
+          Serial.println("❌ Failed to open directory: " + path);
+          request->send(500, "application/json", "[]");
+          return;
+      }
+
+      File file = dir.openNextFile();
+      while (file) {
+          String name = String(file.name());
+          // Remove leading path for subfolders
+          if (name.startsWith(path) && path != "/") {
+              name = name.substring(path.length());
+              if (name.startsWith("/")) name = name.substring(1);
+          }
+          if (name.length() == 0) { file = dir.openNextFile(); continue; }
+
+          // === Hide system/hidden files and folders unless showSystem ===
+          if (!showSystem && (
+              name.endsWith(".path") ||
+              name.endsWith(".bak") ||
+              name.endsWith(".meta") ||
+              name.startsWith(".") ||
+              name.equalsIgnoreCase("System Volume Information") ||
+              name == "Thumbs.db"
+          )) {
+              file = dir.openNextFile();
+              continue;
+          }
+          // === End filter ===
+
+          JsonObject obj = arr.createNestedObject();
+          obj["name"] = name;
+          obj["isFolder"] = file.isDirectory();
+          if (!file.isDirectory())
+              obj["size"] = file.size();
+
+          // Type for icon mapping
+          if (file.isDirectory()) {
+              obj["type"] = (name == "recycle") ? "recycle" : "folder";
+          } else if (name.endsWith(".js")) {
+              obj["type"] = "js";
+          } else if (name.endsWith(".html") || name.endsWith(".htm")) {
+              obj["type"] = "html";
+          } else if (name.endsWith(".txt")) {
+              obj["type"] = "txt";
+          } else {
+              obj["type"] = "default";
+          }
+
+          file = dir.openNextFile();
+      }
+      dir.close();
+
+      // Special: only show recycle if not empty (and only in root)
+      if (path == "/") {
+          File recycle = SD.open("/recycle");
+          if (recycle && recycle.isDirectory()) {
+              bool recycleHasFiles = false;
+              File rf = recycle.openNextFile();
+              while (rf) { recycleHasFiles = true; rf.close(); break; }
+              recycle.close();
+              if (!recycleHasFiles) {
+                  // Remove recycle from arr if it's empty
+                  for (int i = 0; i < arr.size(); i++) {
+                      if (arr[i]["name"] == "recycle" && arr[i]["isFolder"]) {
+                          arr.remove(i);
+                          break;
+                      }
+                  }
+              }
+          }
+      }
+
+      String output;
+      serializeJson(arr, output);
+      request->send(200, "application/json", output);
+  });
+
+
+  server.on("/sd_info", HTTP_GET, [](AsyncWebServerRequest *request){
+      uint64_t total = SD.totalBytes();
+      uint64_t used = SD.usedBytes();
+      uint64_t free = total - used;
+
+      String json = "{\"total\":" + String(total) +
+                    ",\"used\":" + String(used) +
+                    ",\"free\":" + String(free) + "}";
+      request->send(200, "application/json", json);
+  });
+
+  server.on("/download_sd", HTTP_GET, [](AsyncWebServerRequest *request){
+      if (!request->hasParam("path")) {
+          request->send(400, "text/plain", "Missing path");
+          return;
+      }
+      String path = request->getParam("path")->value();
+      if (!path.startsWith("/")) path = "/" + path;  // <-- Ensure leading slash
+      if (!SD.exists(path)) {
+          request->send(404, "text/plain", "File not found");
+          return;
+      }
+      request->send(SD, path, String(), true);  // true = download
+  });
+
+  server.on("/recover_sd", HTTP_GET, [](AsyncWebServerRequest *request){
+      if (!request->hasParam("name")) {
+          request->send(400, "text/plain", "Missing name");
+          return;
+      }
+      String name = request->getParam("name")->value();
+      String recycleFile = "/recycle/" + name;
+      String pathFile = recycleFile + ".path";
+      String dst = "/" + name;
+      // Try to read original path
+      if (SD.exists(pathFile)) {
+          File f = SD.open(pathFile, FILE_READ);
+          if (f) {
+              String origPath = f.readString();
+              origPath.trim();
+              if (origPath.length() > 0 && origPath[0] == '/') {
+                  dst = origPath;
+              }
+              f.close();
+          }
+      }
+      if (SD.exists(dst)) {
+          request->send(409, "text/plain", "File already exists in destination");
+          return;
+      }
+      // Ensure destination folder exists
+      int lastSlash = dst.lastIndexOf('/');
+      if (lastSlash > 0) {
+          String folderPath = dst.substring(0, lastSlash);
+          if (!SD.exists(folderPath)) SD.mkdir(folderPath.c_str());
+      }
+      if (SD.rename(recycleFile, dst)) {
+          if (SD.exists(pathFile)) SD.remove(pathFile); // Clean up metadata
+          request->send(200, "text/plain", "Recovered");
+      } else {
+          request->send(500, "text/plain", "Failed to recover file");
+      }
+  });
+
+
+
+
+  server.on("/permadelete_sd", HTTP_POST, [](AsyncWebServerRequest *request){
+    if (!request->hasParam("path")) {
+      request->send(400, "text/plain", "Missing path");
+      return;
+    }
+    String path = request->getParam("path")->value();
+    if (!path.startsWith("/")) path = "/" + path;
+
+    if (!SD.exists(path)) {
+      request->send(404, "text/plain", "Not Found");
+      return;
+    }
+
+    File f = SD.open(path);
+    if (!f) {
+      request->send(404, "text/plain", "Not Found");
+      return;
+    }
+    bool isDir = f.isDirectory();
+    f.close();
+
+    bool ok = false;
+    if (isDir) {
+      ok = SD.rmdir(path.c_str()); // Only works if folder is empty
+    } else {
+      ok = SD.remove(path.c_str());
+    }
+    if (ok) request->send(200, "text/plain", "Deleted");
+    else    request->send(500, "text/plain", "Failed to delete");
+  });
+
+
+  server.on("/delete_sd", HTTP_POST, [](AsyncWebServerRequest *request) {
+      String originalPath;
+      bool permanent = false;
+
+      // --- Robust permanent flag check (param or arg) ---
+      if (request->hasParam("permanent")) {
+          String permVal = request->getParam("permanent")->value();
+          permanent = (permVal == "1" || permVal == "true" || permVal == "yes");
+      } else if (request->hasArg("permanent")) {
+          String permVal = request->arg("permanent");
+          permanent = (permVal == "1" || permVal == "true" || permVal == "yes");
+      }
+
+      // --- Robust path extraction ---
+      if (request->hasParam("path")) {
+          originalPath = request->getParam("path")->value();
+          Serial.printf("[delete_sd] Got path from param: %s\n", originalPath.c_str());
+      } else if (request->hasArg("path")) {
+          originalPath = request->arg("path");
+          Serial.printf("[delete_sd] Got path from arg: %s\n", originalPath.c_str());
+      } else if (request->contentType().startsWith("application/x-www-form-urlencoded")) {
+          // Fallback: Raw POST body (not common, but let's be robust)
+          String body = request->arg(0);
+          Serial.printf("[delete_sd] Raw POST body: %s\n", body.c_str());
+          int idx = body.indexOf("path=");
+          if (idx != -1) {
+              originalPath = body.substring(idx + 5);
+              int amp = originalPath.indexOf('&');
+              if (amp != -1) originalPath = originalPath.substring(0, amp);
+              originalPath.replace('+', ' ');
+              originalPath = urlDecode(originalPath);
+          }
+      }
+
+      if (!originalPath.length()) {
+          Serial.println("[delete_sd] Missing 'path' parameter!");
+          request->send(400, "text/plain", "Missing 'path' parameter");
+          return;
+      }
+
+      if (!originalPath.startsWith("/")) originalPath = "/" + originalPath;
+      Serial.println("Requested delete: " + originalPath);
+
+      if (!SD.exists(originalPath)) {
+          Serial.println("File not found: " + originalPath);
+          request->send(404, "text/plain", "File not found");
+          return;
+      }
+
+      // --- Permanent delete branch ---
+      if (permanent) {
+          if (SD.remove(originalPath)) {
+              Serial.printf("Permanently deleted: %s\n", originalPath.c_str());
+              request->send(200, "text/plain", "Permanently deleted");
+          } else {
+              Serial.printf("Failed to permanently delete: %s\n", originalPath.c_str());
+              request->send(500, "text/plain", "Failed to permanently delete");
+          }
+          return;
+      }
+
+      // --- Move to recycle ---
+      if (!SD.exists("/recycle")) {
+          SD.mkdir("/recycle");
+          Serial.println("Created /recycle folder");
+      }
+
+      String filename = originalPath.substring(originalPath.lastIndexOf("/") + 1);
+      String recyclePath = "/recycle/" + filename;
+      int count = 1;
+      String testRecyclePath = recyclePath;
+      while (SD.exists(testRecyclePath)) {
+          int dot = filename.lastIndexOf('.');
+          String base = (dot >= 0) ? filename.substring(0, dot) : filename;
+          String ext  = (dot >= 0) ? filename.substring(dot) : "";
+          testRecyclePath = "/recycle/" + base + "_" + String(count++) + ext;
+      }
+      recyclePath = testRecyclePath;
+
+      // Save metadata
+      String pathMetaFile = recyclePath + ".path";
+      File meta = SD.open(pathMetaFile, FILE_WRITE);
+      if (meta) {
+          meta.print(originalPath);
+          meta.close();
+      } else {
+          Serial.printf("⚠️ Failed to write .path metadata for %s\n", recyclePath.c_str());
+      }
+
+      Serial.printf("Moving %s -> %s\n", originalPath.c_str(), recyclePath.c_str());
+      if (SD.rename(originalPath, recyclePath)) {
+          request->send(200, "text/plain", "Moved to recycle: " + recyclePath);
+      } else {
+          Serial.println("Failed to move file to recycle!");
+          if (SD.exists(pathMetaFile)) SD.remove(pathMetaFile);
+          request->send(500, "text/plain", "Failed to move file");
+      }
+  });
+
+  server.on("/upload_sd", HTTP_POST,
+    [](AsyncWebServerRequest *request) { /* No response here */ },
+    [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+      static File uploadFile;
+      static String uploadPath;
+
+      if (index == 0) {
+        // Get full path from POST field (if present)
+        if (request->hasParam("path")) {
+            uploadPath = request->getParam("path")->value();
+          if (!uploadPath.startsWith("/")) uploadPath = "/" + uploadPath;
+        } else {
+          uploadPath = "/" + filename;
+        }
+        Serial.printf(">>> Starting upload: %s\n", uploadPath.c_str());
+
+        // Close previous file if needed
+        if (uploadFile) uploadFile.close();
+
+        // Ensure folder exists
+        ensureFolderExists(uploadPath);
+
+        // Move to recycle if file exists
+        if (SD.exists(uploadPath)) {
+          String shortName = uploadPath.substring(uploadPath.lastIndexOf("/") + 1);
+          String recyclePath = "/recycle/" + shortName;
+          // Make sure /recycle exists
+          if (!SD.exists("/recycle")) SD.mkdir("/recycle");
+          // Avoid overwrite in recycle bin
+          int count = 1;
+          String testRecyclePath = recyclePath;
+          while (SD.exists(testRecyclePath)) {
+            int dot = shortName.lastIndexOf('.');
+            String base = (dot >= 0) ? shortName.substring(0, dot) : shortName;
+            String ext  = (dot >= 0) ? shortName.substring(dot) : "";
+            testRecyclePath = "/recycle/" + base + "_" + String(count++) + ext;
+          }
+          recyclePath = testRecyclePath;
+          SD.rename(uploadPath, recyclePath);
+        }
+
+        uploadFile = SD.open(uploadPath, FILE_WRITE);
+        if (!uploadFile) {
+          request->send(500, "text/plain", "Failed to open file for writing");
+   

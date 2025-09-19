@@ -1,0 +1,422 @@
+2Pac — Gangsta Party (www.lightaudio.ru).mp3,0,9887914
+02. Anna Lunoe – 303.mp3,0,9753991
+01. Sadeness (Part II).flac,0,31135121
+13. Danay Suarez – Viaje En Dub.mp3,0,10276462
+Charlie Puth - Cheating On You.mp3,0,7972594
+Charlie Puth - No More Drama.mp3,0,5605853
+Charlie Puth Jungkook - Left And Right .mp3,0,3439740
+Cherry Blossom 13-06-2021 11-55.mp3,0,4288805
+Cherry Blossom 13-06-2021 11-58.mp3,0,5674967
+Cover.jpg,0,206346
+capture,1,0
+01. 2Chainz feat. Kendrick Lamar – Momma I Hit A Lick.mp3,0,7160621
+1.B.G. The Prince Of Rap - This Beat Is Hot (Club Mix) (www.hotplayer.ru).mp3,0,15640077
+2Pac — Do For Love (www.lightaudio.ru).mp3,0,11266134
+2WEI — Gangsta's Paradise (www.lightaudio.ru).mp3,0,6710379
+03. Bear Grillz feat. Bok Nero – Don’t Stop Get It.mp3,0,6947456
+04. BJ The Chicago Kid feat. Offset – Worryin' Bout Me.mp3,0,9640166
+05. BlocBoy JB – Mercedes.mp3,0,5075993
+06. BlumBros feat. MAKJ – LS6.mp3,0,7523152
+07. Bomba Estereo feat. Systema Solar – Carnavalera.mp3,0,9393564
+08. Bomby feat. Apache – Con Mucho Son.mp3,0,8273407
+09. Bonobo – Linked.mp3,0,14989973
+10. Bumbasee feat. ONEDUO – Tooth And Nail (ONEDUO Remix).mp3,0,6706119
+11. Burna Boy – Collateral Damage.mp3,0,8114573
+12. Chase & Status feat. Kabaka Pyramid – Murder Music.mp3,0,8788574
+14. DeeWunn feat. Leo Justi – Back It Up, Drop It.mp3,0,6937005
+15. Denzel Curry feat. Rick Ross – BIRDZ.mp3,0,8387305
+16. Deorro feat. Henry Fong and Elvis Crespo – Pica.mp3,0,8308960
+17. Diplo – Bubble Up.mp3,0,10201210
+18. Felix Jaehn feat. Breaking Beattz and Brother Leo – LIITA.mp3,0,10255624
+19. French Montana feat. Post Malone and Cardi B feat. Rvssian – Writing On The Wall.mp3,0,8262005
+20. Gente De Zona feat. El Micha – Hazle Completo El Cuento.mp3,0,8989204
+21. Gente De Zona feat. Zion and Lennox – Poquito A Poco.mp3,0,8382112
+Clann — 10. I Hold You (www.lightaudio.ru).mp3,0,22001416
+Coded_Channel_-_My_Life_Is_Going_On_Main_Title_Theme_from_La_Casa_De_Papel_59430130.mp3,0,8737878
+coldplay-feat.-beyonce-hymn-for-the-weekend.mp3,0,9976704
+Daft Punk — Get Lucky (www.lightaudio.ru).mp3,0,14788485
+DAFT PUNK — VERIDIS QUO (www.lightaudio.ru).mp3,0,9559085
+Daft Punk feat. Pharrell Williams, Nile Rodgers — Get Lucky (www.lightaudio.ru).mp3,0,9933889
+David Guetta — Love Don't Let Me Go (www.lightaudio.ru).mp3,0,8677922
+David Guetta — Love Is Gone (www.lightaudio.ru).mp3,0,11651702
+David Guetta — Play Hard (feat. Ne-Yo & Akon) (www.lightaudio.ru).mp3,0,8042624
+David Guetta feat. Sia — Titanium (feat. Sia) (www.lightaudio.ru).mp3,0,9804322
+David Guetta, Sia — Let's Love (www.lightaudio.ru).mp3,0,8027996
+Dido - Just Because (www.hotplayer.ru).mp3,0,9945383
+Dido - Life for Rent (www.hotplayer.ru).mp3,0,8844061
+Dido - Thank You (www.hotplayer.ru).mp3,0,8767783
+Dido - White Flag (www.hotplayer.ru) (1).mp3,0,9571310
+Dido - White Flag (www.hotplayer.ru).mp3,0,8622543
+DJ Danerston — Dangerous (www.lightaudio.ru).mp3,0,10045694
+Don Davis — Matrix Revolutions Main Title (www.lightaudio.ru).mp3,0,3266396
+Don't Call Me Angel - Ariana Grande, Miley Cyrus, Lana Del Rey  (8D AUDIO) (www.hotplayer.ru).mp3,0,2993885
+DOPFunk — I aint mad at cha [2pac, Danny Boy Type Beat] 90s Smooth RnB Hip Hop (www.lightaudio.ru).mp3,0,3865508
+Drenchill feat. Indiiana — Freed from Desire (www.lightaudio.ru).mp3,0,6477367
+Dua_Lipa_-_Physical_68209450.mp3,0,7842420
+Eagles - Hotel California (Live TV Broadcast Recorded at Warner Bros. Studios, Burbank, CA 1994) (www.hotplayer.ru).mp3,0,17631652
+Ed_Sheeran_-_Bad_Habits_73016992.mp3,0,9329311
+EDEN - all you need is love (www.hotplayer.ru).mp3,0,10020615
+EDEN - drugs (www.hotplayer.ru).mp3,0,13550176
+EDEN - Fake Love (www.hotplayer.ru).mp3,0,7481513
+EDEN - rock   roll (www.hotplayer.ru).mp3,0,11845007
+Eden - Sao Visente (www.hotplayer.ru).mp3,0,14796844
+Eden - Shape of My Heart (www.hotplayer.ru).mp3,0,8980942
+EDEN - XO (www.hotplayer.ru).mp3,0,6390697
+Egor_Krid_-_Golos_72777587.mp3,0,7465213
+Egor_Krid_MORGENSHTERN_-_Vesjolaya_pesnya_69139855.mp3,0,7574905
+Ellie Bennett — everything i : 4;
+  table.style.gridTemplateColumns = sdMultiSelect
+    ? "32px 36px 1fr minmax(80px,auto) 140px"
+    : "36px 1fr minmax(80px,auto) 140px";
+  table.style.fontWeight = "bold";
+  table.innerHTML =
+    (sdMultiSelect
+      ? `<div>
+            <input type="checkbox" id="sdMasterSelect"
+                   ${sdSelectedRows.size === sdFileCache.filter(f=>f.name!=="recycle").length ? "checked" : ""}>
+         </div>`
+      : "") +
+    "<div></div><div>File</div><div>Size</div><div>…</div>";
+  list.appendChild(table);
+
+  // Master select logic
+  if (sdMultiSelect) {
+    setTimeout(() => {
+      const master = document.getElementById("sdMasterSelect");
+      if (master) {
+        master.onclick = function () {
+          const allFiles = sdFileCache.filter(f => f.name !== "recycle");
+          if (master.checked) {
+            allFiles.forEach(f => sdSelectedRows.add(f.name));
+          } else {
+            allFiles.forEach(f => sdSelectedRows.delete(f.name));
+          }
+          renderSdFileTable();
+        };
+      }
+    }, 50);
+  }
+
+  // --- Table content ---
+  const files = [...sdFileCache];
+  files.sort((a, b) => (b.isFolder - a.isFolder) || a.name.localeCompare(b.name));
+  files.forEach((file, i) => {
+    const cells = [];
+
+    // Checkbox for multi-select
+    if (sdMultiSelect) {
+      const cbDiv = document.createElement("div");
+      if (file.name !== "recycle") {
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = sdSelectedRows.has(file.name);
+        cb.onclick = (e) => {
+          if (cb.checked) sdSelectedRows.add(file.name);
+          else sdSelectedRows.delete(file.name);
+          renderSdFileTable();
+          e.stopPropagation();
+        };
+        cbDiv.appendChild(cb);
+      }
+      cells.push(cbDiv);
+    }
+
+    // Icon
+    const iconDiv = document.createElement("div");
+    iconDiv.style.textAlign = "center";
+    iconDiv.textContent = fileIcon(file.type, file.name);
+    cells.push(iconDiv);
+
+    // Name
+    const nameDiv = document.createElement("div");
+    nameDiv.textContent = file.name;
+    nameDiv.style.cursor = file.isFolder ? "pointer" : "default";
+    cells.push(nameDiv);
+
+    // Size
+    const sizeDiv = document.createElement("div");
+    sizeDiv.textContent = file.isFolder ? "—" : humanSize(file.size);
+    cells.push(sizeDiv);
+
+    // Actions
+    const actDiv = document.createElement("div");
+    actDiv.style.display = "flex";
+    const isSelected = sdMultiSelect
+      ? sdSelectedRows.has(file.name)
+      : sdSelectedFile === file.name;
+    if (isSelected && file.name !== "recycle") {
+      if (sdInRecycle()) {
+        // Recover button
+        const recoverBtn = document.createElement("button");
+        recoverBtn.title = "Recover";
+        recoverBtn.innerHTML = "♻️";
+        recoverBtn.style.marginRight = "5px";
+        recoverBtn.onclick = (e) => { sdRecover(file.name); e.stopPropagation(); };
+        actDiv.appendChild(recoverBtn);
+
+        // Permanently delete button
+        const delBtn = document.createElement("button");
+        delBtn.title = "Delete Permanently";
+        delBtn.innerHTML = "🗑️";
+        delBtn.onclick = (e) => { sdPermanentDelete(file.name); e.stopPropagation(); };
+        actDiv.appendChild(delBtn);
+      } else {
+        // Download button for single file
+        if (!file.isFolder) {
+          const dlBtn = document.createElement("button");
+          dlBtn.title = "Download";
+          dlBtn.innerHTML = "⬇️";
+          dlBtn.onclick = (e) => { sdDownloadFile(file.name); e.stopPropagation(); };
+          actDiv.appendChild(dlBtn);
+        }
+
+        const delBtn = document.createElement("button");
+        delBtn.title = "Delete";
+        delBtn.innerHTML = "🗑️";
+        delBtn.onclick = (e) => { sdDelete(file.name); e.stopPropagation(); };
+        actDiv.appendChild(delBtn);
+
+        if (!file.isFolder) {
+          const repBtn = document.createElement("button");
+          repBtn.title = "Replace";
+          repBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 20 20"><path d="M6 7v6a2 2 0 0 0 2 2h4" stroke="currentColor" stroke-width="2" fill="none"/><path d="M14 15v-2a2 2 0 0 0-2-2H8"/><path d="M14 11l2 2-2 2"/></svg>`;
+          repBtn.onclick = (e) => {
+            const fileInput = document.getElementById("replaceFileInput");
+            fileInput.onchange = () => {
+              if (fileInput.files.length > 0) {
+                sdReplace(file.name, fileInput.files[0]);
+              }
+            };
+            fileInput.click();
+            e.stopPropagation();
+          };
+          actDiv.appendChild(repBtn);
+        }
+      }
+    }
+    cells.push(actDiv);
+
+    // Row highlight
+    if (isSelected) {
+      cells.forEach(cell => cell.classList.add("selected"));
+    }
+
+    // Row click handler
+    cells.forEach(cell => {
+      cell.onclick = (e) => {
+        if (
+          e.target.tagName === "BUTTON" ||
+          e.target.type === "checkbox"
+        ) return;
+        if (file.name === "recycle") {
+          sdGoTo("recycle");
+        } else if (file.isFolder) {
+          sdGoTo(file.name);
+        } else if (!sdMultiSelect) {
+          if (sdSelectedFile !== file.name) {
+            sdSelectedFile = file.name;
+            renderSdFileTable();
+          }
+        }
+        e.stopPropagation();
+      };
+    });
+
+    // Append all cells
+    cells.forEach(cell => table.appendChild(cell));
+  });
+  attachSdUploadHandler();
+  updateSdCapacityBar();
+}
+
+function sdInRecycle() {
+  return sdCurrentPath() === "recycle";
+}
+
+// --- Actions (to be implemented on backend) ---
+function sdDelete(name) {
+  fetch(`/delete_sd?path=${encodeURIComponent(sdFullPath(name))}`, { method: "POST" })
+    .then(r => loadSdFileList());
+}
+function sdBatchDelete() {
+  const files = Array.from(sdSelectedRows);
+  Promise.all(files.map(name => fetch(`/delete_sd?path=${encodeURIComponent(sdFullPath(name))}`, { method: "POST" })))
+    .then(() => { sdSelectedRows.clear(); loadSdFileList(); });
+}
+function sdPermanentDelete(name) {
+  if (!confirm("Permanently delete this file? This cannot be undone.")) return;
+  fetch(`/permadelete_sd?path=${encodeURIComponent(sdFullPath(name))}`, { method: "POST" })
+    .then(r => loadSdFileList());
+}
+function sdBatchPermanentDelete() {
+  if (!confirm("Permanently delete selected files? This cannot be undone.")) return;
+  const files = Array.from(sdSelectedRows);
+  Promise.all(files.map(name => fetch(`/permadelete_sd?path=${encodeURIComponent(sdFullPath(name))}`, { method: "POST" })))
+    .then(() => { sdSelectedRows.clear(); loadSdFileList(); });
+}
+function sdReplace(name, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("path", sdFullPath(name));
+  fetch("/upload_sd", { method: "POST", body: formData })
+    .then(r => loadSdFileList());
+}
+function sdPromptNew(type) {
+  let name = prompt(`Enter ${type === "folder" ? "folder" : "file"} name:`);
+  if (!name) return;
+  fetch(`/create_${type}?path=${encodeURIComponent(sdFullPath(name))}`, { method: "POST" })
+    .then(r => loadSdFileList());
+}
+
+function sdFullPath(name) {
+  const cur = sdCurrentPath();
+  let path = cur ? cur + "/" + name : name;
+  path = path.replace(/\/+/g, "/"); // Replace multiple slashes with single
+  if (!path.startsWith("/")) path = "/" + path;
+  return path;
+}
+
+
+function showSdFileActions(filename, parentDiv) {
+  // Clear existing buttons
+  const old = parentDiv.querySelector(".sdFileActions");
+  if (old) old.remove();
+
+  const actions = document.createElement("span");
+  actions.className = "sdFileActions";
+
+  const delBtn = document.createElement("button");
+  delBtn.textContent = "🗑 Delete";
+  delBtn.onclick = () => deleteSdFile(filename);
+  actions.appendChild(delBtn);
+
+  const repBtn = document.createElement("button");
+  repBtn.textContent = "🔁 Replace";
+  repBtn.style.marginLeft = "10px";
+  repBtn.onclick = () => {
+    const fileInput = document.getElementById("replaceFileInput");
+    fileInput.onchange = () => {
+      if (fileInput.files.length > 0) {
+        replaceSdFile(filename, fileInput.files[0]);
+      }
+    };
+    fileInput.click();
+  };
+  actions.appendChild(repBtn);
+
+  actions.style.marginLeft = "10px";
+  parentDiv.appendChild(actions);
+}
+
+function deleteSdFile(path) {
+  fetch(`/delete_sd?path=${encodeURIComponent(path)}`, { method: "POST" })
+    .then(r => {
+      if (r.ok) {
+        showToast(`🗑 Moved ${path} to recycle`);
+        loadSdFileList();
+      } else {
+        showToast(`❌ Failed to delete ${path}`, true);
+      }
+    })
+    .catch(err => {
+      console.error("Delete failed:", err);
+      showToast("❌ Error deleting file", true);
+    });
+}
+
+function replaceSdFile(path, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("path", path);
+
+  fetch("/upload_sd", {
+    method: "POST",
+    body: formData,
+  })
+    .then(r => {
+      if (r.ok) {
+        showToast(`✅ Replaced ${path}`);
+        loadSdFileList();
+      } else {
+        showToast("❌ Replace failed", true);
+      }
+    })
+    .catch(err => {
+      console.error("Replace error:", err);
+      showToast("❌ Replace failed", true);
+    });
+}
+
+function sendReboot() {
+  fetch("/reboot", { method: "POST" }).then(() => {
+    showToast("🔄 Rebooting...");
+    setTimeout(() => location.reload(), 5000);
+  });
+}
+
+window.sendReboot = sendReboot;
+window.loadSdFileList = loadSdFileList;
+window.updateSdCapacityBar = updateSdCapacityBar;
+
+function attachRebootBtnHandler() {
+  const btn = document.getElementById("rebootBtn");
+  if (btn) {
+    // Remove any old handlers to prevent duplicates
+    btn.replaceWith(btn.cloneNode(true)); // Remove all old listeners
+    const newBtn = document.getElementById("rebootBtn");
+    newBtn.addEventListener("click", sendReboot);
+  }
+}
+
+function attachSdUploadHandler() {
+  const btn = document.getElementById("uploadSdFileBtn");
+  const fileInput = document.getElementById("uploadSdFileInput");
+  if (!btn || !fileInput) return;
+  btn.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    if (fileInput.files.length > 0) {
+      const file = fileInput.files[0];
+      let base = sdCurrentPath();
+      if (!base) base = "";
+      if (base === "/") base = "";
+      let path = base + "/" + file.name;
+      path = path.replace(/\/+/g, "/");
+      if (!path.startsWith("/")) path = "/" + path;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // --- Progress UI ---
+      let progContainer = document.getElementById("sdDynamicUploadProgress");
+      if (progContainer) progContainer.remove();
+      progContainer = document.createElement("div");
+      progContainer.id = "sdDynamicUploadProgress";
+      progContainer.style.cssText = `
+        position: fixed; left: 50%; top: 30px; transform: translateX(-50%);
+        background: #222; color: #eee; border-radius: 8px;
+        box-shadow: 0 2px 12px #0008; z-index:9999; padding: 18px 28px 18px 28px;
+        display: flex; flex-direction: column; align-items: center; min-width:240px; font-size:15px;`;
+
+      // Progress bar
+      const barBG = document.createElement("div");
+      barBG.style.cssText = "background:#333;width:220px;height:14px;border-radius:6px;overflow:hidden;margin-bottom:10px;";
+      const bar = document.createElement("div");
+      bar.style.cssText = "background:#4CAF50;width:0;height:100%;transition:width 0.2s;";
+      barBG.appendChild(bar);
+
+      // Text status
+      const status = document.createElement("div");
+      status.style.marginBottom = "4px";
+      status.textContent = "Uploading…";
+
+      // Speed status
+      const speed = document.createElement("div");
+      speed.style.fontSize = "13px";
+      speed.style.color = "#99f";
+
+      // ETA status
+      const eta = document.createElement("div");
+      eta.style.fontSize = "13px";
+      eta.style.color = "#9f9";
+
+      // Cancel butt
