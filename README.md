@@ -1,121 +1,237 @@
-/***************************************************************
- *    MiniExco Robot Firmware
- *    Hardware: ESP32-S3-SPK v1.0 (8MB PSRAM / 16MB flash)
- *    - Dual microphones, DAC to mono speaker
- *    - microSD card slot, OV2640 camera, WS2812B LEDs
- *    - Designed for autonomous robotics & media playback
- *
- *    ⚠️  CRITICAL HARDWARE REQUIREMENT: HEATSINK **AND ACTIVE COOLING**!
- *    ------------------------------------------------------------------
- *    This project runs the ESP32-S3 at extremely high load (Wi-Fi, camera, SD, audio).
- *    >>> YOU MUST INSTALL BOTH:
- *        1. A METAL HEATSINK on the ESP32-S3 chip (with thermal adhesive or pad)
- *        2. A 25mm x 25mm (or similar) LOW-PROFILE 5V COOLING FAN for active airflow
- *    ------------------------------------------------------------------
- *    Failure to provide **both** passive (heatsink) and active (fan) cooling will result in:
- *      - Overheating, Wi-Fi/network failures, random resets, severe instability, or PERMANENT DAMAGE.
- *      - There is NO built-in hardware or automatic thermal protection in ESP32-S3!
- *    ------------------------------------------------------------------
- *    [Edit this notice only if you confirm a heatsink AND a cooling fan are properly installed!]
- *
- *    Circuit diagrams, webserver files, and wiring drawings:
- *      [add link here]
- *    Video tutorials:
- *      [add link here]
- *
- *    Revision History:
-                   TO DO:
-                    b. implement BMP180 barometric pressure sensor readings in UI
-                    c. Start working on android APK and API for it.
-         v2.0.78: Added 3D Models into the folder
-                  Reworked WiFi connection logics           
-         v2.0.77: Finetuning IP speakup and AP/STA modes
-                  Troubleshooting WiFi down and watchdog reboot
-         v2.0.76: Fixed NPT Time blocking the loop
-                  Added IP speaking Capability
-                  Added animation for AP mode
-                  Fine tuning the code.
-         v2.0.75: Implemented wifi connection priorities in saved multible networks.
+MiniExco Robot Firmware
 
-         v2.0.74: Implement adaptive stream quality settings toggled through cam settings
-                  Tweaked IMU chick check to be only in setup, otherwise playing audio hickups
-                  Added Wifi AP deletion from prefs, otherwise keeps connecting to first one.
-                  Tweaked frontend with show password eye
-                  Tweaked front and backend with delete saved wifi AP
- 
-         v2.0.73: Made IMU chip optional not to block code from execution when its not present.
-                  Added throttle to camera quality settings to help with heap allocation
-                  Untie lights and media playing from websocket connection quality to avoid hickups
-                  Pause streaming and playing media when loading settings modal, then on close resume
+Firmware for MiniExco Rover, running on ESP32-S3-SPK v1.0 (8 MB PSRAM / 16 MB flash).
+Designed for autonomous robotics and media playback with integrated camera, audio, storage, and LED control.
 
-         v2.0.72: Cleaning Code from unused references
-                  Implemented watchdog on crient disconnect Server Stuck/Dead
-                  Videofeed for home assistant discovery added over MDNS
-                  Settings → Devices & Services → Add Integration → search “MJPEG IP Camera”
-                  camera:
-                    - platform: mjpeg
-                      name: MiniExco Rover
-                      mjpeg_url: http://miniexco-s3-v1-01.local:81/stream
-                      still_image_url: http://miniexco-s3-v1-01.local/capture
-                  AP password change from UI
+🚀 Demo Preview
 
-         v2.0.71: Serialize SD access
-                  Fix telemetry kept logging
-                  Added online radio channels to media panel
-                  
-         v2.0.70: Tweak Controls tab
-                  Telemetry recording logics tweaks
-                  Added Bluepad32 switch in frontpage
+(Add screenshots, GIFs, or YouTube links here to showcase your robot in action)
 
-        v2.0.69: Controls assignment for both keyboard and joypad
-                 Modal window tab logics tweaks
-                 İncomplete file uploads rebooting and corrupting existing files fix
+🎥 Live MJPEG camera stream in web UI
 
-        v2.0.68: Added camera stream start/stop button in interface
-                 Implement async Json
-                 SDLock to prevent collisions
-                 Optimized code for webserverdisconnects
- *      v2.0.67: Optimize PSRAM usage; move variables/functions to PSRAM to free Heap on ESP32-S3.
- *      v2.0.66: OLED fixes; system sound queue; mic streaming; voltage filtering; MQTT Home Assistant discovery.
- *      v2.0.64: Heap optimizations; playlist loading optimized; cleaned up sketch; custom partition; frontend version in MQTT.
- *      v2.0.63: Split frontend CSS for index/settings; fixed stream hangs; added firmware version to MQTT.
- *      v2.0.62: BLE joystick PWM; MQTT for Home Assistant; serial debug flag; more fixes.
- *      v2.0.61: Home Assistant support.
- *      v2.0.60: System WAV sound playback (boot, Wi-Fi, etc.); frontend/backend system sound volume.
- *      v2.0.59: Media/video playback (fullscreen/windowed, controls); auto reindex after recording.
- *      v2.0.58: Media library in settings tab.
- *      v2.0.57: Video/photo capture to SD; camera model in settings; apply cam settings on boot; file manager path fixes.
- *      v2.0.56: Telemetry logging to CSV; overlay battery voltage charts.
- *
- *    TODO List:
- *      - Path following algorithms
- *      - Fix large file uploads
- *      - OLED battery icon artifacts
- *      - 3D Model in overlay moving with tilt/turn and flash lights and animate
- *
- ***************************************************************/
+🕹️ Web-based joystick + keyboard/gamepad control
 
-/* Bluepad32 documentation: https://bluepad32.readthedocs.io/en/latest/
-                            https://github.com/ricardoquesada/bluepad32
-*/
+📊 Real-time telemetry overlay (IMU, temperature, battery)
 
-// ============================================================================
-// Feature switches (override with -D in build flags if you like)
-// ----------------------------------------------------------------------------
-// USE_BLUEPAD32 - Controlled by frontend Settings in Control tab switch - update v2.0.70
-//   0 = exclude Bluepad32 gamepad support (saves flash/RAM, faster compile)
-//   1 = include Bluepad32 (needs Bluepad32 library + BT enabled)
-//   Tip: set to 0 unless you actually use a BT gamepad.
-//
-// DEBUG_SERIAL
-//   0 = silence most DBG_PRINT/DBG_PRINTF calls
-//   1 = enable verbose serial logging (requires Serial.begin in setup())
-//   Tip: keep 1 while developing; switch to 0 for production.
-//
-// USE_PSRAM
-//   0 = use internal heap only for large buffers (frame buffers, media queues)
-//   1 = prefer PSRAM for large buffers (much more space; slightly slower access)
-//   Notes:
-//     - Board must actually have PSRAM. We’ll detect at runtime and fall back.
-//     - Good for camera frames, audio buffers, MJPEG chunking, JSON docs.
-// ============================================================================
+🔊 Media playback & online radio
+
+🌈 WS2812B LED effects and signals
+
+📱 Home Assistant integration
+
+Example layout:
+
+Web Interface	Camera Feed	Telemetry Overlay
+
+	
+	
+
+👉 If you record a video demo, link it here (e.g. YouTube).
+
+⚠️ Critical Hardware Requirement: Cooling
+
+This project drives the ESP32-S3 at very high load (Wi-Fi + camera + SD + audio).
+
+You must install both:
+
+A metal heatsink on the ESP32-S3 chip (with thermal pad/adhesive)
+
+A 25 × 25 mm (or similar) low-profile 5 V cooling fan
+
+🚨 Without both passive and active cooling you risk:
+
+Overheating, random resets, Wi-Fi/network failures
+
+Severe instability or permanent damage
+
+👉 ESP32-S3 has no built-in thermal protection.
+Do not run without heatsink + fan.
+
+Hardware Features
+
+ESP32-S3-SPK v1.0 board
+
+Dual microphones + DAC to mono speaker
+
+microSD card slot for media and logging
+
+OV2640 camera (MJPEG streaming, capture, video recording)
+
+WS2812B addressable LEDs
+
+Wi-Fi AP/STA modes with preference logic
+
+Bluepad32 Bluetooth gamepad support (optional)
+
+Circuit Diagrams & Tutorials
+
+Circuit diagrams and wiring: [add link here]
+
+Webserver files: [add link here]
+
+Video tutorials: [add link here]
+
+Getting Started
+1. Clone the repository
+git clone https://github.com/elik745i/miniexco.v1.git
+cd miniexco.v1
+
+2. Install toolchain
+
+You can build using Arduino IDE or PlatformIO.
+
+Arduino IDE
+
+Install Arduino IDE
+
+Add ESP32 board manager URL:
+
+File → Preferences → Additional Board URLs →
+
+https://espressif.github.io/arduino-esp32/package_esp32_index.json
+
+
+Install ESP32 Board Package (2.0.14 or later recommended).
+
+Select ESP32-S3-DevKitC-1 / ESP32-S3-SPK with PSRAM enabled.
+
+Open MiniExco_v2_xx.ino and build/upload.
+
+PlatformIO (VS Code)
+
+Install VS Code
+ + PlatformIO
+.
+
+Open this repo in VS Code.
+
+Select the project environment (esp32-s3-spk).
+
+Build → Upload firmware.
+
+3. Connect and test
+
+Open Serial Monitor at 115200 baud to see debug logs.
+
+After boot, the ESP32 will:
+
+Start in Wi-Fi AP mode if no saved networks are found.
+
+Broadcast an SSID like MiniExco_xx.
+
+Access the web interface at:
+
+http://192.168.4.1              (AP mode default)
+http://<device-ip>              (when connected to your router)
+http://miniexco-s3-v1-02.local/ (via mDNS, no IP required 🎉)
+
+
+(Tip: .local addresses work out of the box on macOS/Linux. On Windows, install Bonjour Print Services
+ if mDNS isn’t available.)
+
+4. Web Interface
+
+The built-in frontend allows you to:
+
+Control motors, servos, and LEDs
+
+Adjust camera settings (resolution, FPS, stream quality)
+
+View telemetry (IMU, temperature, battery)
+
+Upload media files (audio, video) to the SD card
+
+Configure Wi-Fi, OTA updates, and preferences
+
+Home Assistant Integration
+
+MiniExco Rover integrates directly into Home Assistant using the MJPEG IP Camera platform.
+
+Add this to configuration.yaml:
+
+camera:
+  - platform: mjpeg
+    name: MiniExco Rover
+    mjpeg_url: http://miniexco-s3-v1-01.local:81/stream
+    still_image_url: http://miniexco-s3-v1-01.local/capture
+
+
+Replace miniexco-s3-v1-01.local with your device’s hostname or IP.
+
+Restart Home Assistant → camera feed appears as an entity.
+
+Build Options
+
+Feature switches (can be overridden with -D in build flags):
+
+USE_BLUEPAD32
+
+0 → exclude BT gamepad support (saves flash/RAM)
+
+1 → include Bluepad32 (requires BT + Bluepad32 library)
+
+DEBUG_SERIAL
+
+0 → silent (disable most DBG_PRINT calls)
+
+1 → verbose serial logging
+
+USE_PSRAM
+
+0 → use internal heap only
+
+1 → prefer PSRAM for large buffers (camera frames, audio, JSON, etc.)
+
+Revision History
+
+v2.0.78
+
+Added 3D models into repo
+
+Reworked Wi-Fi connection logic
+
+v2.0.77
+
+Improved AP/STA switching
+
+Debugged Wi-Fi down and watchdog resets
+
+v2.0.76
+
+Fixed NTP blocking loop
+
+Added IP speech output
+
+Idle animation for AP mode
+
+Code fine-tuning
+
+v2.0.75
+
+Implemented Wi-Fi priority handling for multiple saved networks
+
+v2.0.74 → v2.0.56
+
+See full changelog in source
+
+TODO
+
+Add BMP180 barometric pressure sensor readings in UI
+
+Android APK + API integration
+
+Path-following algorithms
+
+Fix large file uploads
+
+OLED battery icon artifacts
+
+3D model overlay synced with IMU (tilt/turn, flashing lights, animation)
+
+References
+
+Bluepad32 documentation:
+
+https://bluepad32.readthedocs.io/en/latest/
+
+https://github.com/ricardoquesada/bluepad32
