@@ -209,7 +209,7 @@
 
 //--------------------------------------------------------------------FIRMWARE INFO----------------------------------------------------------------
 
-  #define FIRMWARE_VERSION "v2.0.78"
+  #define FIRMWARE_VERSION "v2.0.79"
 
   #define S3_ID "MINIEXCO_S3_V1_02"
 
@@ -288,6 +288,7 @@
   // ---- Minimal exclusivity (NEW) ----
   volatile bool ss_exclusive = false;   // while true, any new non-IP enqueues are dropped
   volatile bool ss_allow     = false;   // temporarily true only while we enqueue the IP sequence
+  const char* g_apSpeechFile = "/web/pcm/apaudio.wav";
 
 
 // -------------------------------------------------------------- Globals for recording -----------------------------------------------------------
@@ -377,6 +378,7 @@
   static uint32_t ss_apSpeechAtMs      = 0;
   static bool     ss_staSpeechPending  = false;
   static IPAddress ss_staIpToSpeak;
+  static bool     ss_announcedStaIp    = false;
 
 //--------------------------------------------------------------------Reindex globals--------------------------------------------------------------
 
@@ -2521,6 +2523,13 @@ unsigned long wifiConnectStartTime = 0;
         if (!SD.exists(pu)) DBG_PRINTF("[PCM MISSING] %s (or %s)\n", p.c_str(), pu.c_str());
       }
     }
+
+    if (SD.exists("/web/pcm/apaudio.wav") || SD.exists("/web/pcm/APAUDIO.WAV")) {
+      g_apSpeechFile = "/web/pcm/apaudio.wav";
+    } else {
+      g_apSpeechFile = nullptr;
+      DBG_PRINTF("[PCM MISSING] apaudio.wav (or APAUDIO.WAV) not found under /web/pcm\n");
+    }
   }
 
 //-------------------------------------------------------------------------System Sound-------------------------------------------------------------
@@ -2580,9 +2589,12 @@ unsigned long wifiConnectStartTime = 0;
       g_mediaPausedBySystem = false;
       resumeAudio();  // your resume starts track from the beginning; acceptable
     }
-    if (ss_exclusive && (queueHead == queueTail) && !audio.isRunning() && !isSystemSoundPlaying) {
+    if (ss_exclusive && (queueHead == queueTail) && !isSystemSoundPlaying) {
       ss_exclusive = false;
-    }    
+    }
+
+    if (!ss_exclusive) ss_announcedStaIp = false;
+    ss_exclusive = false;
   }
 
   // Speak an IP address by queueing WAV digits + a dot sound
@@ -2618,8 +2630,27 @@ unsigned long wifiConnectStartTime = 0;
 
 
   inline bool soundIsPlaying() {
-    // Your code already has isSystemSoundPlaying; double-guard with audio.isRunning()
-    return isSystemSoundPlaying || audio.isRunning();
+    // Treat queue as busy while a system sound is actively playing
+    return isSystemSoundPlaying;
+  }
+
+  void cancelSystemSoundQueue() {
+    if (!isSystemSoundPlaying && queueHead == queueTail) return;
+
+    stopAudio();
+    isSystemSoundPlaying = false;
+    queueHead = queueTail = 0;
+    ss_allow = false;
+    ss_apSpeechPending = false;
+    ss_staSpeechPending = false;
+    ss_announcedStaIp = false;
+
+    if (g_mediaPausedBySystem) {
+      g_mediaPausedBySystem = false;
+      resumeAudio();
+    }
+
+    ss_exclusive = false;
   }
 
   void scheduleApSpeechSoon(uint32_t delayMs = 700) {
@@ -2629,24 +2660,57 @@ unsigned long wifiConnectStartTime = 0;
   }
 
   void speakStaIpOrDefer(const IPAddress& ip) {
-    // If something is playing, defer until queue is idle
-    if (soundIsPlaying()) {
-      ss_staSpeechPending = true;
-      ss_staIpToSpeak = ip;
+    ss_staIpToSpeak = ip;
+
+    if (ip == IPAddress(0,0,0,0)) {
+      DBG_PRINTLN("[WIFI AUDIO] STA IP is 0.0.0.0; deferring speech");
       return;
     }
+
+    if (isSystemSoundPlaying && !ss_staSpeechPending) {
+      DBG_PRINTLN("[WIFI AUDIO] Preempting current system sound for STA announcement");
+      cancelSystemSoundQueue();
+    }
+
+    if (ss_exclusive || soundIsPlaying()) {
+      String ipStr = ip.toString();
+      DBG_PRINTF("[WIFI AUDIO] Deferring STA speech while busy for %s\n", ipStr.c_str());
+      ss_staSpeechPending = true;
+      ss_announcedStaIp = true;
+      return;
+    }
+
+    ss_exclusive = true;
+    ss_allow     = true;
+    queueHead = queueTail = 0;
+
+    String ipStr = ip.toString();
+    DBG_PRINTF("[WIFI AUDIO] Playing STA connect clip for %s\n", ipStr.c_str());
+
     playSystemSound("/web/pcm/connected.wav");
+
+    unsigned long _prevDelay = soundRepeatDelay;
+    soundRepeatDelay = 0;
     speakIPAddress(ip);
+    soundRepeatDelay = _prevDelay;
+
+    ss_announcedStaIp = true;
+    ss_allow = false;
+    ss_staSpeechPending = false;
   }
 
   void pumpSystemSoundScheduler(uint32_t now) {
     // Fire pending AP speech once loop is alive and queue is idle
-    if (ss_apSpeechPending && now >= ss_apSpeechAtMs && !soundIsPlaying() && !ss_exclusive) {
+    if (ss_apSpeechPending && now >= ss_apSpeechAtMs && !isSystemSoundPlaying && !ss_exclusive) {
       ss_exclusive = true;
       ss_allow     = true;
       queueHead = queueTail = 0;
 
-      playSystemSound("/web/pcm/apaudio.wav");
+      String apIpStr = WiFi.softAPIP().toString();
+      DBG_PRINTF("[WIFI AUDIO] Speaking AP IP %s\n", apIpStr.c_str());
+
+      if (g_apSpeechFile) playSystemSound(g_apSpeechFile);
+      else DBG_PRINTLN("[PCM INFO] AP speech sound unavailable; skipping clip");
 
       unsigned long _prevDelay = soundRepeatDelay; 
       soundRepeatDelay = 0;
@@ -2658,20 +2722,32 @@ unsigned long wifiConnectStartTime = 0;
     }
 
     // Fire deferred STA speech when queue is idle
-    if (ss_staSpeechPending && !soundIsPlaying() && !ss_exclusive) {
-      ss_exclusive = true;
-      ss_allow     = true;
-      queueHead = queueTail = 0;
+    if (ss_staSpeechPending) {
+      if (!isSystemSoundPlaying && !ss_exclusive) {
+        ss_exclusive = true;
+        ss_allow     = true;
+        queueHead = queueTail = 0;
 
-      playSystemSound("/web/pcm/connected.wav");
+        String staIpStr = ss_staIpToSpeak.toString();
+        DBG_PRINTF("[WIFI AUDIO] Playing STA connect clip via scheduler for %s\n", staIpStr.c_str());
 
-      unsigned long _prevDelay = soundRepeatDelay; 
-      soundRepeatDelay = 0;
-      speakIPAddress(ss_staIpToSpeak);
-      soundRepeatDelay = _prevDelay;
+        playSystemSound("/web/pcm/connected.wav");
 
-      ss_allow = false;
-      ss_staSpeechPending = false;
+        unsigned long _prevDelay = soundRepeatDelay; 
+        soundRepeatDelay = 0;
+        speakIPAddress(ss_staIpToSpeak);
+        soundRepeatDelay = _prevDelay;
+
+        ss_announcedStaIp = true;
+        ss_allow = false;
+        ss_staSpeechPending = false;
+      } else {
+        static uint32_t lastStaWaitLog = 0;
+        if (now - lastStaWaitLog >= 1000) {
+          DBG_PRINTF("[WIFI AUDIO] STA speech waiting (playing=%d, exclusive=%d)\n", isSystemSoundPlaying, ss_exclusive);
+          lastStaWaitLog = now;
+        }
+      }
     }
   }
 
@@ -2703,6 +2779,7 @@ unsigned long wifiConnectStartTime = 0;
 
     showWiFiStep(String("AP:\n") + WiFi.softAPIP().toString());
     wifiState = WIFI_AP_LOBBY;
+    ss_announcedStaIp = false;
     wifiLastScanAt = 0;          // force immediate scan
     currentCandidateIndex = -1;  // restart candidate iteration
   }
@@ -2778,9 +2855,15 @@ unsigned long wifiConnectStartTime = 0;
     if (WiFi.status() == WL_CONNECTED) {
       if (wifiState != WIFI_STA_OK) {
         switchToStaOnly();
-        showWiFiStep("Connected:\n" + WiFi.localIP().toString(), true);
-        playSystemSound("/web/pcm/connected.wav");
-        speakIPAddress(WiFi.localIP());
+
+        IPAddress staIp = WiFi.localIP();
+        if (staIp == IPAddress(0,0,0,0)) {
+          return; // wait for DHCP to provide a real address
+        }
+
+        showWiFiStep("Connected:\n" + staIp.toString(), true);
+        ss_apSpeechPending = false;
+        speakStaIpOrDefer(staIp);
         wifiState = WIFI_STA_OK;
       }
       return; // nothing else to do while happily connected
@@ -2789,6 +2872,7 @@ unsigned long wifiConnectStartTime = 0;
     // 2) Not connected → ensure AP lobby is running
     if (wifiState == WIFI_STA_OK && WiFi.status() != WL_CONNECTED) {
       // lost link → go back to AP lobby and retry forever
+      ss_announcedStaIp = false;
       startApLobby();
     }
 
@@ -7445,14 +7529,14 @@ unsigned long wifiConnectStartTime = 0;
     }
 
     // If you keep this helper, it will speak STA IP once on connect
-    static bool spokeStaIpThisConnect = false;
     if (WiFi.status() == WL_CONNECTED) {
-      if (!spokeStaIpThisConnect) {
-        speakStaIpOrDefer(WiFi.localIP());
-        spokeStaIpThisConnect = true;
+      IPAddress currentStaIp = WiFi.localIP();
+      if (currentStaIp != IPAddress(0,0,0,0) && !ss_announcedStaIp && !ss_staSpeechPending) {
+        speakStaIpOrDefer(currentStaIp);
       }
     } else {
-      spokeStaIpThisConnect = false;
+      ss_announcedStaIp = false;
+      ss_staSpeechPending = false;
     }
 
     // Remainder of your app
@@ -7501,10 +7585,3 @@ unsigned long wifiConnectStartTime = 0;
 
     delay(1);
   }
-
-
-
-
-
-
-
