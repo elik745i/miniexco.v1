@@ -27,6 +27,8 @@
                    TO DO:
                     b. implement BMP180 barometric pressure sensor readings in UI
                     c. Start working on android APK and API for it.
+         v2.0.81: Reworked interface: making controls expandable.                     
+         v2.0.80: Reworked interface: extended video feed                   
          v2.0.78: Added 3D Models into the folder
                   Reworked WiFi connection logics           
          v2.0.77: Finetuning IP speakup and AP/STA modes
@@ -209,7 +211,7 @@
 
 //--------------------------------------------------------------------FIRMWARE INFO----------------------------------------------------------------
 
-  #define FIRMWARE_VERSION "v2.0.79"
+  #define FIRMWARE_VERSION "v2.0.81"
 
   #define S3_ID "MINIEXCO_S3_V1_02"
 
@@ -1510,7 +1512,9 @@ unsigned long wifiConnectStartTime = 0;
   void updatePixels() {
       pixels.clear();
 
-      // Highest priority: Emergency
+      // =========================
+      // Emergency has top priority
+      // =========================
       if (emergencyOn) {
           uint32_t col = blinkState ? pixels.Color(255, 180, 0) : 0;
           pixels.setPixelColor(0, col);
@@ -1518,111 +1522,108 @@ unsigned long wifiConnectStartTime = 0;
           pixels.setPixelColor(6, col);
           pixels.setPixelColor(11, col);
           pixels.show();
+
           // Stop siren if it was running
           if (sirenPlaying) {
+              Serial.println("[SIREN] Emergency -> stop");
               stopAudio();
               sirenPlaying = false;
           }
           return;
       }
 
-      // Beacon
+      // Track last beacon state to detect ON/OFF edges
+      static bool lastBeacon = false;
+
+      // ========== Beacon mode ==========
       if (beaconOn) {
           static int phase = 0;
           static unsigned long lastStep = 0;
           const int stepDelay = 90;
           const int whiteFlashes = 3;
-          // 3 blue fill + 3 red fill + 3 flashes + 3 white flashes = 12 phases
           const int phaseCount = 3 + 3 + 3 + whiteFlashes * 2;
 
           unsigned long now = millis();
-
           if (now - lastStep > stepDelay) {
               lastStep = now;
-              phase++;
-              if (phase >= phaseCount) phase = 0;
+              phase = (phase + 1) % phaseCount;
           }
 
           pixels.clear();
-
-          // Define which indices are paired for both bars
           const int pairs[3][2] = { {0, 5}, {1, 4}, {2, 3} };
 
-          // BLUE FORWARD FILL
+          // LED pattern logic...
           if (phase == 0) {
-              // Only ends
               for (int b = 0; b < 2; b++) {
                   pixels.setPixelColor(pairs[0][b], pixels.Color(0, 0, 255));
-                  pixels.setPixelColor(pairs[0][b]+6, pixels.Color(0, 0, 255));
+                  pixels.setPixelColor(pairs[0][b] + 6, pixels.Color(0, 0, 255));
               }
           } else if (phase == 1) {
-              // Ends + next inner
               for (int step = 0; step < 2; step++)
                   for (int b = 0; b < 2; b++) {
                       pixels.setPixelColor(pairs[step][b], pixels.Color(0, 0, 255));
-                      pixels.setPixelColor(pairs[step][b]+6, pixels.Color(0, 0, 255));
+                      pixels.setPixelColor(pairs[step][b] + 6, pixels.Color(0, 0, 255));
                   }
           } else if (phase == 2) {
-              // All blue (ends + next inner + center)
               for (int step = 0; step < 3; step++)
                   for (int b = 0; b < 2; b++) {
                       pixels.setPixelColor(pairs[step][b], pixels.Color(0, 0, 255));
-                      pixels.setPixelColor(pairs[step][b]+6, pixels.Color(0, 0, 255));
+                      pixels.setPixelColor(pairs[step][b] + 6, pixels.Color(0, 0, 255));
                   }
           }
-          // RED REVERSE FILL
           else if (phase == 3) {
-              // Only center
               for (int b = 0; b < 2; b++) {
                   pixels.setPixelColor(pairs[2][b], pixels.Color(255, 0, 0));
-                  pixels.setPixelColor(pairs[2][b]+6, pixels.Color(255, 0, 0));
+                  pixels.setPixelColor(pairs[2][b] + 6, pixels.Color(255, 0, 0));
               }
           } else if (phase == 4) {
-              // Center + next outer
               for (int step = 1; step < 3; step++)
                   for (int b = 0; b < 2; b++) {
                       pixels.setPixelColor(pairs[step][b], pixels.Color(255, 0, 0));
-                      pixels.setPixelColor(pairs[step][b]+6, pixels.Color(255, 0, 0));
+                      pixels.setPixelColor(pairs[step][b] + 6, pixels.Color(255, 0, 0));
                   }
           } else if (phase == 5) {
-              // All red (center + next outer + ends)
               for (int step = 0; step < 3; step++)
                   for (int b = 0; b < 2; b++) {
                       pixels.setPixelColor(pairs[step][b], pixels.Color(255, 0, 0));
-                      pixels.setPixelColor(pairs[step][b]+6, pixels.Color(255, 0, 0));
+                      pixels.setPixelColor(pairs[step][b] + 6, pixels.Color(255, 0, 0));
                   }
-          }
-          // FLASHES: RED, BLUE, RED
-          else if (phase == 6) {
-              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(255,0,0));
+          } else if (phase == 6) {
+              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(255, 0, 0));
           } else if (phase == 7) {
-              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(0,0,255));
+              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(0, 0, 255));
           } else if (phase == 8) {
-              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(255,0,0));
-          }
-          // WHITE FLASHES: on/off alternately
-          else if (phase >= 9 && phase < 9+whiteFlashes*2) {
-              if ((phase-9)%2 == 0) {
-                  for (int i=0; i<12; i++) pixels.setPixelColor(i, pixels.Color(255,255,255));
+              for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(255, 0, 0));
+          } else if (phase >= 9 && phase < 9 + whiteFlashes * 2) {
+              if ((phase - 9) % 2 == 0) {
+                  for (int i = 0; i < 12; i++) pixels.setPixelColor(i, pixels.Color(255, 255, 255));
               }
-              // Odd phases: off (pixels.clear() already called)
           }
 
           pixels.show();
 
-          // --- Siren control: loop while beacon is on ---
-          if (!sirenPlaying) {
-              playSystemSound("/web/pcm/siren.wav"); // loop if your function supports, else retrigger in handleAnimationTimers
+          // ---- Siren control (state change only) ----
+          if (!lastBeacon) { // turned ON just now
+              Serial.println("[SIREN] Beacon ON -> start siren");
+              stopAudio();
+              setVolume(sSndVolume);
+              playWavFileOnSpeaker("/web/pcm/siren.wav");
               sirenPlaying = true;
           }
+
+          lastBeacon = true;
           return;
-      } else if (sirenPlaying) {
-          // Beacon just turned off, stop the siren
-          stopAudio();
-          sirenPlaying = false;
       }
 
-      // Main LED white
+      // Beacon just turned off
+      if (lastBeacon) {
+          Serial.println("[SIREN] Beacon OFF -> stop siren");
+          stopAudio();
+          sirenPlaying = false;
+          lastBeacon = false;
+      }
+
+      // ================= Main LED (white) =================
       if (light) {
           for (int i = 0; i < NEO_COUNT; i++)
               pixels.setPixelColor(i, pixels.Color(255, 255, 255));
@@ -1630,7 +1631,7 @@ unsigned long wifiConnectStartTime = 0;
           return;
       }
 
-      // Turn signals (blinkState toggles on/off)
+      // ================= Turn signals =================
       if (leftSignalActive && !rightSignalActive) {
           uint32_t col = blinkState ? pixels.Color(255, 180, 0) : 0;
           pixels.setPixelColor(0, col);
@@ -1648,6 +1649,7 @@ unsigned long wifiConnectStartTime = 0;
 
       pixels.show();
   }
+
 
   void pixelStart(){
     pixels.begin();
@@ -2568,7 +2570,10 @@ unsigned long wifiConnectStartTime = 0;
   }
 
   void onSystemSoundFinished() {
+    bool shouldLoopSiren = beaconOn && sirenPlaying;
+
     isSystemSoundPlaying = false;
+    sirenPlaying = false;
 
     // Release exclusive gate held for the beep
     if (g_gateHeldByAudio) {
@@ -2582,6 +2587,14 @@ unsigned long wifiConnectStartTime = 0;
       queueHead = (queueHead + 1) % MAX_SYSTEM_SOUND_QUEUE;
       playSystemSound(nextFile.c_str());
       return;
+    }
+
+    if (shouldLoopSiren && sSndEnabled) {
+      playSystemSound("/web/pcm/siren.wav");
+      if (isSystemSoundPlaying) {
+        sirenPlaying = true;
+        return;
+      }
     }
 
     // If we paused media to play the system sound, resume it now
@@ -2636,6 +2649,7 @@ unsigned long wifiConnectStartTime = 0;
 
   void cancelSystemSoundQueue() {
     if (!isSystemSoundPlaying && queueHead == queueTail) return;
+    sirenPlaying = false;
 
     stopAudio();
     isSystemSoundPlaying = false;
@@ -3875,6 +3889,8 @@ unsigned long wifiConnectStartTime = 0;
 
   void stopAudio() {
     audio.stopSong();
+    sirenPlaying = false;
+    isSystemSoundPlaying = false;
     digitalWrite(I2S_SPK_PA, LOW);
     playbackStarted = false;
 

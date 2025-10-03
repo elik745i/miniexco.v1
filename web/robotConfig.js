@@ -65,10 +65,13 @@ window.initRobotConfigTab = function() {
 	// System Sounds Toggle
 	const systemSoundsToggle = document.getElementById("systemSoundsToggle");
 	if (systemSoundsToggle) {
-		systemSoundsToggle.onchange = function() {
-			if (window.websocketCarInput && websocketCarInput.readyState === WebSocket.OPEN) {
-				websocketCarInput.send("SystemSounds," + (this.checked ? 1 : 0));
-			}
+		if (typeof window.cachedSystemSounds === "boolean") {
+			systemSoundsToggle.checked = window.cachedSystemSounds;
+		}
+		systemSoundsToggle.onchange = function () {
+			const nextState = !!this.checked;
+			window.cachedSystemSounds = nextState;
+			sendButtonInput("SystemSounds", nextState ? 1 : 0);
 		};
 	}
 
@@ -76,17 +79,57 @@ window.initRobotConfigTab = function() {
 	const systemVolume = document.getElementById("systemVolume");
 	const systemVolumeLabel = document.getElementById("systemVolumeLabel");
 	if (systemVolume && systemVolumeLabel) {
-		systemVolume.oninput = function() {
-			systemVolumeLabel.innerText = this.value;
-			if (window.websocketCarInput && websocketCarInput.readyState === WebSocket.OPEN) {
-				websocketCarInput.send("SystemVolume," + this.value);
-			}
+		if (typeof window.cachedSystemVolume !== "undefined") {
+			systemVolume.value = window.cachedSystemVolume;
+			systemVolumeLabel.innerText = window.cachedSystemVolume;
+		}
+		systemVolume.oninput = function () {
+			const val = this.value;
+			window.cachedSystemVolume = val;
+			systemVolumeLabel.innerText = val;
+			sendButtonInput("SystemVolume", val);
 		};
+	paintRobotAudioControls();
+
 	}
-	
 }
 
-  
+	// Refresh from backend to ensure latest values (in case modal opened early)
+	try {
+		fetch('/getsettings').then(r => r.json()).then(data => {
+			if (typeof data.SystemSounds !== 'undefined') {
+				window.cachedSystemSounds = (data.SystemSounds == 1);
+			}
+			if (typeof data.SystemVolume !== 'undefined') {
+				window.cachedSystemVolume = data.SystemVolume;
+			}
+			paintRobotAudioControls();
+		}).catch(() => {});
+	} catch (e) {}
+
+
+function paintRobotAudioControls() {
+	const toggle = document.getElementById("systemSoundsToggle");
+	if (toggle && typeof window.cachedSystemSounds === "boolean") {
+		toggle.checked = window.cachedSystemSounds;
+	}
+	const volume = document.getElementById("systemVolume");
+	const label = document.getElementById("systemVolumeLabel");
+	if (volume && label) {
+		let val;
+		if (typeof window.cachedSystemVolume !== "undefined") {
+			val = parseInt(window.cachedSystemVolume, 10);
+		} else {
+			val = parseInt(volume.value, 10);
+		}
+		if (Number.isNaN(val)) val = 0;
+		volume.value = val;
+		label.innerText = val;
+	}
+}
+
+window.paintRobotAudioControls = paintRobotAudioControls;
+
 function handleModalWebSocketMessage(key, value) {
 	if (key === "darkMode") {
 		const darkToggle = document.getElementById('darkToggle');
@@ -106,14 +149,18 @@ function handleModalWebSocketMessage(key, value) {
 		if (el) el.checked = (value == "1");
 	}
 	if (key === "SystemSounds") {
+		window.cachedSystemSounds = (value == "1");
 		const el = document.getElementById('systemSoundsToggle');
-		if (el) el.checked = (value == "1");
+		if (el) el.checked = window.cachedSystemSounds;
+		paintRobotAudioControls();
 	}
 	if (key === "SystemVolume") {
+		window.cachedSystemVolume = value;
 		const el = document.getElementById('systemVolume');
 		const label = document.getElementById('systemVolumeLabel');
 		if (el) el.value = value;
 		if (label) label.innerText = value;
+		paintRobotAudioControls();
 	}
 	if (key === "RecordTelemetry") {
 		const el = document.getElementById('recordTelemetryToggle');

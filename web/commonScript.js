@@ -1,3 +1,6 @@
+window.cachedSystemSounds = (typeof window.cachedSystemSounds === "boolean") ? window.cachedSystemSounds : undefined;
+window.cachedSystemVolume = (typeof window.cachedSystemVolume !== "undefined") ? window.cachedSystemVolume : undefined;
+
 var websocketCarInput;
 var auxSlider;
 var bucketSlider;
@@ -27,6 +30,24 @@ let isRecordingVideo = false;
 let videoRecordTimeout = null;
 
 let cameraEnabled = true;
+
+const CONTROLS_AUTO_HIDE_DELAY_MS = 5000;
+const DIRECTIONAL_VECTORS = {
+  forward: { command: "2", x: 0, y: 255 },
+  backward: { command: "1", x: 0, y: -255 },
+  left: { command: "3", x: -255, y: 0 },
+  right: { command: "4", x: 255, y: 0 }
+};
+const DIRECTIONAL_KEYS = new Set(Object.keys(DIRECTIONAL_VECTORS));
+let activeDirectionalAction = null;
+let activeDirectionalSource = null;
+const directionalButtonState = new WeakMap();
+
+let controlsPanelElement = null;
+let controlsPanelToggleBtn = null;
+let controlsPanelAutoHideTimer = null;
+let controlsPanelExpanded = true;
+const controlsPanelMetrics = { panelWidth: 0, toggleWidth: 0 };
 
 // Ensure the main stylesheet is cache-busted similarly to the previous inline script.
 (function refreshMainStylesheet() {
@@ -112,6 +133,220 @@ window.toggleDarkMode = function(isDark) {
 	  localStorage.setItem("darkMode", isDark ? "1" : "0");
 };
 
+function initCollapsibleControlsPanel() {
+  controlsPanelElement = document.getElementById('controlsPanel');
+  controlsPanelToggleBtn = document.getElementById('controlsToggleBtn');
+
+  if (!controlsPanelElement || !controlsPanelToggleBtn) {
+    return;
+  }
+
+  controlsPanelElement.classList.remove('collapsed');
+  controlsPanelToggleBtn.setAttribute('aria-expanded', 'true');
+  controlsPanelToggleBtn.setAttribute('aria-label', 'Hide controls panel');
+
+  controlsPanelToggleBtn.addEventListener('click', toggleControlsPanel);
+
+  const interactionEvents = ['pointerdown', 'input', 'focusin', 'keydown', 'touchstart', 'wheel'];
+  interactionEvents.forEach((evtName) => {
+    controlsPanelElement.addEventListener(evtName, () => {
+      if (controlsPanelExpanded) {
+        scheduleControlsAutoHide();
+      }
+    }, { capture: true });
+  });
+
+  controlsPanelElement.addEventListener('mouseenter', clearControlsAutoHide);
+  controlsPanelElement.addEventListener('mouseleave', () => {
+    if (controlsPanelExpanded) {
+      scheduleControlsAutoHide();
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearControlsAutoHide();
+    } else if (controlsPanelExpanded) {
+      scheduleControlsAutoHide();
+    }
+  });
+
+  setControlsPanelExpanded(true);
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(refreshControlsPanelPosition);
+  } else {
+    refreshControlsPanelPosition();
+  }
+  window.addEventListener('resize', handleControlsPanelResize);
+}
+
+function setControlsPanelExpanded(expanded, options = {}) {
+  if (!controlsPanelElement || !controlsPanelToggleBtn) {
+    return;
+  }
+
+  const { autoSchedule = true } = options;
+  const isExpanded = Boolean(expanded);
+  const collapsedOffset = computeControlsPanelCollapsedOffset();
+
+  controlsPanelExpanded = isExpanded;
+  controlsPanelElement.classList.toggle('collapsed', !isExpanded);
+  controlsPanelToggleBtn.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+  controlsPanelToggleBtn.setAttribute('aria-label', isExpanded ? 'Hide controls panel' : 'Show controls panel');
+
+  applyControlsPanelPosition(collapsedOffset, isExpanded);
+
+  if (!isExpanded) {
+    clearControlsAutoHide();
+    return;
+  }
+
+  if (autoSchedule) {
+    scheduleControlsAutoHide();
+  } else {
+    clearControlsAutoHide();
+  }
+}
+
+window.toggleControlsPanel = function(event) {
+  if (event && typeof event.preventDefault === 'function') {
+    event.preventDefault();
+  }
+  const shouldExpand = !(controlsPanelExpanded === true);
+  setControlsPanelExpanded(shouldExpand);
+};
+
+function scheduleControlsAutoHide() {
+  if (!controlsPanelElement || !controlsPanelToggleBtn) {
+    return;
+  }
+  if (!controlsPanelExpanded) {
+    clearControlsAutoHide();
+    return;
+  }
+
+  clearControlsAutoHide();
+  controlsPanelAutoHideTimer = window.setTimeout(() => {
+    if (!controlsPanelExpanded) {
+      return;
+    }
+
+    const activeEl = document.activeElement;
+    const isHoveringPanel = controlsPanelElement.matches(':hover');
+    const isPanelFocused = activeEl && controlsPanelElement.contains(activeEl) && activeEl !== controlsPanelToggleBtn;
+
+    if (document.hidden || isHoveringPanel || isPanelFocused) {
+      scheduleControlsAutoHide();
+      return;
+    }
+
+    setControlsPanelExpanded(false, { autoSchedule: false });
+  }, CONTROLS_AUTO_HIDE_DELAY_MS);
+}
+
+function clearControlsAutoHide() {
+  if (controlsPanelAutoHideTimer !== null) {
+    window.clearTimeout(controlsPanelAutoHideTimer);
+    controlsPanelAutoHideTimer = null;
+  }
+}
+
+function computeControlsPanelCollapsedOffset() {
+  if (!controlsPanelElement) {
+    return 'calc(var(--controls-toggle-width) - var(--controls-panel-width))';
+  }
+
+  const panelRect = controlsPanelElement.getBoundingClientRect();
+  let panelWidth = (panelRect && typeof panelRect.width === 'number')
+    ? panelRect.width
+    : 0;
+
+  if (!panelWidth) {
+    const panelComputed = getComputedStyle(controlsPanelElement);
+    const parsedPanelWidth = parseFloat(panelComputed.width);
+    if (!Number.isNaN(parsedPanelWidth) && parsedPanelWidth > 0) {
+      panelWidth = parsedPanelWidth;
+    } else if (controlsPanelElement.offsetWidth) {
+      panelWidth = controlsPanelElement.offsetWidth;
+    }
+  }
+
+  let toggleWidth = 0;
+  if (controlsPanelToggleBtn) {
+    const toggleRect = controlsPanelToggleBtn.getBoundingClientRect();
+    if (toggleRect && typeof toggleRect.width === 'number') {
+      toggleWidth = toggleRect.width;
+    }
+    if (!toggleWidth) {
+      const toggleComputed = getComputedStyle(controlsPanelToggleBtn);
+      const parsedToggleWidth = parseFloat(toggleComputed.width);
+      if (!Number.isNaN(parsedToggleWidth) && parsedToggleWidth > 0) {
+        toggleWidth = parsedToggleWidth;
+      } else if (controlsPanelToggleBtn.offsetWidth) {
+        toggleWidth = controlsPanelToggleBtn.offsetWidth;
+      }
+    }
+  }
+
+  if (!toggleWidth) {
+    const rootStyles = getComputedStyle(document.documentElement);
+    const toggleVar = parseFloat(rootStyles.getPropertyValue('--controls-toggle-width'));
+    if (!Number.isNaN(toggleVar) && toggleVar > 0) {
+      toggleWidth = toggleVar;
+    }
+  }
+
+  controlsPanelMetrics.panelWidth = panelWidth || 0;
+  controlsPanelMetrics.toggleWidth = toggleWidth || 0;
+
+  if (!panelWidth) {
+    return 'calc(var(--controls-toggle-width) - var(--controls-panel-width))';
+  }
+
+  if (!toggleWidth) {
+    const fallbackOffset = -Math.round(panelWidth * 100) / 100;
+    return `${fallbackOffset}px`;
+  }
+
+  const offsetPx = toggleWidth - panelWidth;
+  const rounded = Math.round(offsetPx * 100) / 100;
+  return `${rounded}px`;
+}
+
+function applyControlsPanelPosition(offsetValue, isExpandedState) {
+  if (!controlsPanelElement) {
+    return;
+  }
+
+  const offset = offsetValue || 'calc(var(--controls-toggle-width) - var(--controls-panel-width))';
+  controlsPanelElement.style.setProperty('--controls-panel-collapsed-offset', offset);
+  controlsPanelElement.style.transform = '';
+  controlsPanelElement.style.left = isExpandedState ? '0px' : offset;
+
+  let overlayOffset = isExpandedState ? controlsPanelMetrics.panelWidth : controlsPanelMetrics.toggleWidth;
+  if (overlayOffset && overlayOffset > 0) {
+    overlayOffset = `calc(${Math.round(overlayOffset)}px + var(--controls-overlay-gap))`;
+  } else {
+    overlayOffset = isExpandedState
+      ? 'var(--controls-overlay-left-expanded)'
+      : 'var(--controls-overlay-left-collapsed)';
+  }
+
+  document.documentElement.style.setProperty('--controls-overlay-left-current', overlayOffset);
+}
+
+function refreshControlsPanelPosition() {
+  if (!controlsPanelElement) {
+    return;
+  }
+
+  const offset = computeControlsPanelCollapsedOffset();
+  applyControlsPanelPosition(offset, Boolean(controlsPanelExpanded));
+}
+
+function handleControlsPanelResize() {
+  refreshControlsPanelPosition();
+}
 
 function startDrag(e) {
     active = true;
@@ -242,6 +477,8 @@ function setJoystickKnob(x, y) {
 }
 
 function realOnLoad() {
+  initCollapsibleControlsPanel();
+  initDirectionalButtons();
   // --- DARK MODE SYNC: Fetch from backend as soon as modal & DOM are ready ---
   fetch('/getsettings')
     .then(r => r.json())
@@ -268,14 +505,19 @@ function realOnLoad() {
         if (recordTelemetrySwitch) recordTelemetrySwitch.checked = (data.RecordTelemetry == 1);
       }
       if ("SystemSounds" in data) {
+        window.cachedSystemSounds = (data.SystemSounds == 1);
         const systemSoundsToggle = document.getElementById("systemSoundsToggle");
-        if (systemSoundsToggle) systemSoundsToggle.checked = (data.SystemSounds == 1);
+        if (systemSoundsToggle) systemSoundsToggle.checked = window.cachedSystemSounds;
       }
       if ("SystemVolume" in data) {
+        window.cachedSystemVolume = data.SystemVolume;
         const systemVolume = document.getElementById("systemVolume");
         const systemVolumeLabel = document.getElementById("systemVolumeLabel");
-        if (systemVolume) systemVolume.value = data.SystemVolume;
-        if (systemVolumeLabel) systemVolumeLabel.innerText = data.SystemVolume;
+        if (systemVolume) systemVolume.value = window.cachedSystemVolume;
+        if (systemVolumeLabel) systemVolumeLabel.innerText = window.cachedSystemVolume;
+      }
+      if (typeof window.paintRobotAudioControls === "function") {
+        window.paintRobotAudioControls();
       }
     })
     .catch(() => {
@@ -457,10 +699,21 @@ function setDevicePlayState(filename, isPlaying) {
 
 
 function initWebSocket() {
+  if (websocketCarInput && (websocketCarInput.readyState === WebSocket.OPEN || websocketCarInput.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
   websocketCarInput = new WebSocket("ws://" + location.host + "/CarInput");
   window.wsCarInput = websocketCarInput;
 
-  websocketCarInput.onopen  = () => console.log("WebSocket Connected");
+  websocketCarInput.onopen  = () => {
+    console.log("WebSocket Connected");
+    window._carSocketQueue = window._carSocketQueue || [];
+    if (window._carSocketQueue.length) {
+      const pending = window._carSocketQueue.splice(0);
+      pending.forEach(msg => websocketCarInput.send(msg));
+    }
+  };
   websocketCarInput.onclose = () => setTimeout(initWebSocket, 2000);
 
   // ✅ Robust onmessage: handles string, Blob, ArrayBuffer
@@ -627,6 +880,28 @@ function initWebSocket() {
         return;
       }
 
+      if (key === "SystemSounds") {
+        window.cachedSystemSounds = (value == "1");
+        const toggle = document.getElementById("systemSoundsToggle");
+        if (toggle) toggle.checked = window.cachedSystemSounds;
+        if (typeof window.paintRobotAudioControls === "function") {
+          window.paintRobotAudioControls();
+        }
+        return;
+      }
+
+      if (key === "SystemVolume") {
+        window.cachedSystemVolume = value;
+        const slider = document.getElementById("systemVolume");
+        const label = document.getElementById("systemVolumeLabel");
+        if (slider) slider.value = value;
+        if (label) label.innerText = value;
+        if (typeof window.paintRobotAudioControls === "function") {
+          window.paintRobotAudioControls();
+        }
+        return;
+      }
+
       if (normalizedKey === "EMERGENCY") {
         emergencyOn = (value === "1");
         const left  = document.getElementById("leftIndicator");
@@ -676,90 +951,248 @@ function isModalOpen() {
 }
 
 function sendButtonInput(key, value) {
-	if (websocketCarInput && websocketCarInput.readyState === WebSocket.OPEN) {
-	  websocketCarInput.send(key + "," + value);
-	}
+  const payload = key + "," + value;
+  if (websocketCarInput && websocketCarInput.readyState === WebSocket.OPEN) {
+    websocketCarInput.send(payload);
+    return;
+  }
+  window._carSocketQueue = window._carSocketQueue || [];
+  window._carSocketQueue.push(payload);
+  if (!websocketCarInput || websocketCarInput.readyState === WebSocket.CLOSED || websocketCarInput.readyState === WebSocket.CLOSING) {
+    initWebSocket();
+  }
+}
+function applyDirectionalInput(action, engage = true, source = "keyboard") {
+  if (!DIRECTIONAL_KEYS.has(action)) return;
+  const vector = DIRECTIONAL_VECTORS[action];
+  if (!vector) return;
+
+  if (engage) {
+    if (activeDirectionalAction === action && activeDirectionalSource === source) {
+      return;
+    }
+    activeDirectionalAction = action;
+    activeDirectionalSource = source;
+    sendButtonInput("MoveCar", vector.command);
+    setJoystickKnob(vector.x, vector.y);
+    return;
+  }
+
+  if (activeDirectionalAction !== action) {
+    return;
+  }
+
+  if (activeDirectionalSource && activeDirectionalSource !== source) {
+    return;
+  }
+
+  activeDirectionalAction = null;
+  activeDirectionalSource = null;
+  sendButtonInput("MoveCar", "0");
+  setJoystickKnob(0, 0);
+}
+
+function initDirectionalButtons() {
+  const buttons = document.querySelectorAll('.joystick-dir[data-direction]');
+  if (!buttons.length) return;
+
+  buttons.forEach((btn) => {
+    const action = btn.dataset.direction;
+    if (!DIRECTIONAL_KEYS.has(action)) return;
+
+    const onPointerDown = (evt) => {
+      if (directionalButtonState.get(btn) === 'pointer') return;
+      evt.preventDefault();
+      directionalButtonState.set(btn, 'pointer');
+      if (typeof btn.setPointerCapture === 'function' && typeof evt.pointerId === 'number') {
+        try { btn.setPointerCapture(evt.pointerId); } catch (err) {}
+      }
+      applyDirectionalInput(action, true, 'pointer');
+    };
+
+    const onPointerRelease = (evt) => {
+      if (directionalButtonState.get(btn) !== 'pointer') return;
+      if (evt) evt.preventDefault();
+      directionalButtonState.delete(btn);
+      if (evt && typeof btn.releasePointerCapture === 'function' && typeof evt.pointerId === 'number') {
+        try { btn.releasePointerCapture(evt.pointerId); } catch (err) {}
+      }
+      applyDirectionalInput(action, false, 'pointer');
+    };
+
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointerup', onPointerRelease);
+    btn.addEventListener('pointercancel', onPointerRelease);
+    btn.addEventListener('pointerleave', onPointerRelease);
+    btn.addEventListener('lostpointercapture', onPointerRelease);
+
+    btn.addEventListener('keydown', (evt) => {
+      if (evt.key !== ' ' && evt.key !== 'Enter') return;
+      evt.preventDefault();
+      if (directionalButtonState.get(btn) === 'keyboard') return;
+      directionalButtonState.set(btn, 'keyboard');
+      applyDirectionalInput(action, true, 'keyboard');
+    });
+
+    btn.addEventListener('keyup', (evt) => {
+      if (evt.key !== ' ' && evt.key !== 'Enter') return;
+      evt.preventDefault();
+      if (directionalButtonState.get(btn) !== 'keyboard') return;
+      directionalButtonState.delete(btn);
+      applyDirectionalInput(action, false, 'keyboard');
+    });
+
+    btn.addEventListener('blur', () => {
+      if (directionalButtonState.get(btn) === 'keyboard') {
+        directionalButtonState.delete(btn);
+        applyDirectionalInput(action, false, 'keyboard');
+      }
+    });
+  });
+}
+
+
+function initDirectionalButtons() {
+  const buttons = document.querySelectorAll('.joystick-dir[data-direction]');
+  if (!buttons.length) return;
+
+  buttons.forEach((btn) => {
+    const action = btn.dataset.direction;
+    if (!DIRECTIONAL_KEYS.has(action)) return;
+
+    const onPointerDown = (evt) => {
+      if (directionalButtonState.get(btn) === 'pointer') return;
+      evt.preventDefault();
+      directionalButtonState.set(btn, 'pointer');
+      if (typeof btn.setPointerCapture === 'function' && typeof evt.pointerId === 'number') {
+        try { btn.setPointerCapture(evt.pointerId); } catch (err) {}
+      }
+      applyDirectionalInput(action, true, 'pointer');
+    };
+
+    const onPointerRelease = (evt) => {
+      if (directionalButtonState.get(btn) !== 'pointer') return;
+      if (evt) evt.preventDefault();
+      directionalButtonState.delete(btn);
+      if (evt && typeof btn.releasePointerCapture === 'function' && typeof evt.pointerId === 'number') {
+        try { btn.releasePointerCapture(evt.pointerId); } catch (err) {}
+      }
+      applyDirectionalInput(action, false, 'pointer');
+    };
+
+    btn.addEventListener('pointerdown', onPointerDown);
+    btn.addEventListener('pointerup', onPointerRelease);
+    btn.addEventListener('pointercancel', onPointerRelease);
+    btn.addEventListener('pointerleave', onPointerRelease);
+    btn.addEventListener('lostpointercapture', onPointerRelease);
+
+    btn.addEventListener('keydown', (evt) => {
+      if (evt.key !== ' ' && evt.key !== 'Enter') return;
+      evt.preventDefault();
+      if (directionalButtonState.get(btn) === 'keyboard') return;
+      directionalButtonState.set(btn, 'keyboard');
+      applyDirectionalInput(action, true, 'keyboard');
+    });
+
+    btn.addEventListener('keyup', (evt) => {
+      if (evt.key !== ' ' && evt.key !== 'Enter') return;
+      evt.preventDefault();
+      if (directionalButtonState.get(btn) !== 'keyboard') return;
+      directionalButtonState.delete(btn);
+      applyDirectionalInput(action, false, 'keyboard');
+    });
+
+    btn.addEventListener('blur', () => {
+      if (directionalButtonState.get(btn) === 'keyboard') {
+        directionalButtonState.delete(btn);
+        applyDirectionalInput(action, false, 'keyboard');
+      }
+    });
+  });
+}
+
+function sendButtonInput(key, value) {
+  const payload = key + "," + value;
+  if (websocketCarInput && websocketCarInput.readyState === WebSocket.OPEN) {
+    websocketCarInput.send(payload);
+    return;
+  }
+  window._carSocketQueue = window._carSocketQueue || [];
+  window._carSocketQueue.push(payload);
+  if (!websocketCarInput || websocketCarInput.readyState === WebSocket.CLOSED || websocketCarInput.readyState === WebSocket.CLOSING) {
+    initWebSocket();
+  }
 }
 
 function handleKeyDown(e) {
-	if (isModalOpen() || isInputFocused()) return;  // 👈 Block controls if modal or input
-	const key = e.key.toLowerCase();
-	if (keysDown[key]) return; // prevent re-processing held key
-	keysDown[key] = true;
+  if (isModalOpen() || isInputFocused()) return;  // dY^ Block controls if modal or input
+  const key = e.key.toLowerCase();
+  if (keysDown[key]) return; // prevent re-processing held key
+  keysDown[key] = true;
 
-	const action = keymap[key];
-	if (!action) return;
+  const action = keymap[key];
+  if (!action) return;
 
-	switch (action) {
-	  case "forward":
-		sendButtonInput("MoveCar", "2");      // FORWARD
-		setJoystickKnob(0, 255);
-		break;
-	  case "backward":
-		sendButtonInput("MoveCar", "1");      // BACKWARD
-		setJoystickKnob(0, -255);
-		break;
-	  case "left":
-		sendButtonInput("MoveCar", "3");
-		setJoystickKnob(-255, 0);
-		break;
-	  case "right":
-		sendButtonInput("MoveCar", "4");
-		setJoystickKnob(255, 0);
-		break;
-	  case "stop":
-		sendButtonInput("MoveCar", "0");
-		setJoystickKnob(0, 0);
-		break;
+  switch (action) {
+    case "forward":
+    case "backward":
+    case "left":
+    case "right":
+      applyDirectionalInput(action, true, "keyboard");
+      break;
+    case "stop":
+      activeDirectionalAction = null;
+      activeDirectionalSource = null;
+      sendButtonInput("MoveCar", "0");
+      setJoystickKnob(0, 0);
+      break;
 
-	  case "bucketUp":
-		bucketSlider.value = parseInt(bucketSlider.value) + 5;
-		sendButtonInput("Bucket", bucketSlider.value);
-		break;
-	  case "bucketDown":
-		bucketSlider.value = parseInt(bucketSlider.value) - 5;
-		sendButtonInput("Bucket", bucketSlider.value);
-		break;
-	  case "auxUp":
-		auxSlider.value = parseInt(auxSlider.value) + 5;
-		sendButtonInput("AUX", auxSlider.value);
-		break;
-	  case "auxDown":
-		auxSlider.value = parseInt(auxSlider.value) - 5;
-		sendButtonInput("AUX", auxSlider.value);
-		break;
+    case "bucketUp":
+      bucketSlider.value = parseInt(bucketSlider.value) + 5;
+      sendButtonInput("Bucket", bucketSlider.value);
+      break;
+    case "bucketDown":
+      bucketSlider.value = parseInt(bucketSlider.value) - 5;
+      sendButtonInput("Bucket", bucketSlider.value);
+      break;
+    case "auxUp":
+      auxSlider.value = parseInt(auxSlider.value) + 5;
+      sendButtonInput("AUX", auxSlider.value);
+      break;
+    case "auxDown":
+      auxSlider.value = parseInt(auxSlider.value) - 5;
+      sendButtonInput("AUX", auxSlider.value);
+      break;
 
-	  case "led":
-		toggleLed();
-		break;
-	  case "beacon":
-		toggleBeacon();
-		break;
-	  case "emergency":
-		toggleEmergency();
-		break;
-		case "horn":
-		sendButtonInput("Horn", "1");  // or your horn-on command
-		break;		
-	}
+    case "led":
+      toggleLed();
+      break;
+    case "beacon":
+      toggleBeacon();
+      break;
+    case "emergency":
+      toggleEmergency();
+      break;
+    case "horn":
+      sendButtonInput("Horn", "1");  // or your horn-on command
+      break;
+  }
 }
 
 function handleKeyUp(e) {
-	if (isModalOpen() || isInputFocused()) return;  // 👈 Block controls if modal or input
-	const key = e.key.toLowerCase();
-	delete keysDown[key];
+  if (isModalOpen() || isInputFocused()) return;  // dY^ Block controls if modal or input
+  const key = e.key.toLowerCase();
+  delete keysDown[key];
 
-	const action = keymap[key];
-	if (!action) return;
+  const action = keymap[key];
+  if (!action) return;
 
-	// Stop movement on release
-	if (["forward", "backward", "left", "right"].includes(action)) {
-	  sendButtonInput("MoveCar", "0");
-	  setJoystickKnob(0, 0);
-	}
-	if (action === "horn") {
-		sendButtonInput("Horn", "0");  // or your horn-off command
-	}	
+  if (DIRECTIONAL_KEYS.has(action)) {
+    applyDirectionalInput(action, false, "keyboard");
+  }
+  if (action === "horn") {
+    sendButtonInput("Horn", "0");  // or your horn-off command
+  }
 }
 
   function updateSliderValue(id) {
@@ -1610,4 +2043,20 @@ function toggleCamera() {
     })
     .finally(() => btn?.removeAttribute("disabled"));
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
