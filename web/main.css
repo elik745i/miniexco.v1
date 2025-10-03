@@ -539,8 +539,22 @@ label span { font-weight: normal; margin-left: 6px; color: yellow; }
   font-weight: bold;
   padding: 8px 14px;
 }
-#startButton { background-color: lime; color: black; animation: pulseStart 1.6s infinite; }
-#stopButton { background-color: red; color: white; animation: pulseStop 1.6s infinite; }
+
+#startButton { 
+  background-color: lime; 
+  color: black; 
+  animation: 
+  pulseStart 1.6s infinite; 
+}
+
+#stopButton { 
+  background-color: red; 
+  color: white; 
+  animation: pulseStop 1.6s infinite; 
+  bottom: auto !important; 
+  transform: translate(-50%, -120%);
+}
+
 #startButton:hover { box-shadow: 0 0 10px lime; transform: scale(1.05); }
 #stopButton:hover { box-shadow: 0 0 10px red; transform: scale(1.05); }
 @keyframes pulseStart { 0%, 100% { box-shadow: 0 0 6px lime; } 50% { box-shadow: 0 0 16px lime; } }
