@@ -28,6 +28,22 @@ let videoRecordTimeout = null;
 
 let cameraEnabled = true;
 
+// Ensure the main stylesheet is cache-busted similarly to the previous inline script.
+(function refreshMainStylesheet() {
+  const mainStyle = document.getElementById('mainStyle');
+  if (!mainStyle) {
+    return;
+  }
+
+  const href = mainStyle.getAttribute('href') || '';
+  const path = href.split('?')[0];
+  if (!path) {
+    return;
+  }
+
+  mainStyle.href = `${path}?v=${Date.now()}`;
+})();
+
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const BLANK_IMG =
