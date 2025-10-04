@@ -1,468 +1,652 @@
-  const perspectiveConfig = {
+const perspectiveConfig = {
 
-    minWidth: 32,
+	minWidth: 32,
 
-    maxWidth: 120,
+	maxWidth: 1200,
 
-    easingExponent: 1.2
+	easingExponent: 1.2
 
-  };
+};
 
-  function getSurfaceBounds(surface) {
+const autoRoundConfig = {
 
-    if (!surface) return null;
+	enabled: true,
 
-    if (typeof surface.getBoundingClientRect === "function") {
+	iterations: 10,
 
-      const rect = surface.getBoundingClientRect();
+	minDistance: 1.2
 
-      return { width: rect.width, height: rect.height };
+};
 
-    }
+function getAnchorLift() {
 
-    if (typeof surface.width === "number" && typeof surface.height === "number") {
+	return Math.max(perspectiveConfig.minWidth * 0.35, 12);
 
-      return { width: surface.width, height: surface.height };
+}
 
-    }
+function normalizeAnchorPath(points, anchor, options = {}) {
+if (!anchor || typeof anchor.x !== "number" || typeof anchor.y !== "number") {
+	return Array.isArray(points) ? points.slice() : [];
+}
 
-    return null;
+// Tuning knobs
+const tolerance    = Math.max(Number(options.tolerance ?? 0.5), 0.1);
+const fallbackLift = Math.max(getAnchorLift(), 0.1);
+const lift         = Math.max(Number(options.lift ?? fallbackLift), fallbackLift);
 
-  }
+const safeAnchor = { x: Number(anchor.x) || 0, y: Number(anchor.y) || 0 };
 
-  function getPerspectiveWidth(y, bounds) {
+// Sanitize inputs (finite numbers only)
+const source = Array.isArray(points)
+	? points
+			.map(pt => ({ x: Number(pt?.x), y: Number(pt?.y) }))
+			.filter(pt => Number.isFinite(pt.x) && Number.isFinite(pt.y))
+	: [];
 
-    if (!bounds || !bounds.height) return perspectiveConfig.maxWidth;
+// Always start at the exact anchor; do not add the same point twice
+const result = [{ x: safeAnchor.x, y: safeAnchor.y }];
 
-    const safeY = typeof y === "number" ? y : 0;
+// Skip any initial duplicates of the anchor
+let cursor = 0;
+while (
+	cursor < source.length &&
+	Math.abs(source[cursor].x - safeAnchor.x) <= tolerance &&
+	Math.abs(source[cursor].y - safeAnchor.y) <= tolerance
+) {
+	cursor++;
+}
 
-    const normalized = Math.min(Math.max(bounds.height === 0 ? 0 : safeY / bounds.height, 0), 1);
+// Determine the required vertical lift above anchor for the 2nd point
+const targetY     = Math.max(0, safeAnchor.y - lift);        // full lift limit
+const minHalfLift = Math.max(0, safeAnchor.y - lift * 0.5);  // at least half-lift
 
-    const eased = Math.pow(normalized, perspectiveConfig.easingExponent);
+// Build/adjust the second point
+let second = source[cursor];
+if (!second) {
+	// No user point yet -> create a clean upward segment
+	second = { x: safeAnchor.x, y: targetY };
+} else {
+	const lockX = Math.abs(second.x - safeAnchor.x) <= tolerance;
+	let y = second.y;
 
-    return perspectiveConfig.minWidth + (perspectiveConfig.maxWidth - perspectiveConfig.minWidth) * eased;
+	// If flat/downward/too close to anchor, enforce at least half-lift upward
+	if (y >= safeAnchor.y - tolerance || (safeAnchor.y - y) < (lift * 0.5)) {
+		y = minHalfLift;
+	}
 
-  }
+	// Never allow the 2nd point to exceed the full lift upward clamp
+	y = Math.min(y, targetY);
 
-  function buildPerspectiveStrip(points, bounds) {
+	second = { x: lockX ? safeAnchor.x : second.x, y };
+}
 
-    if (!Array.isArray(points) || points.length < 2) return null;
+result.push(second);
 
-    const safeBounds = bounds || { width: 0, height: 0 };
+// Append the rest, skipping exact duplicates with the last appended point
+for (let i = cursor + 1; i < source.length; i++) {
+	const candidate = source[i];
+	if (!candidate) continue;
+	const last = result[result.length - 1];
+	if (
+		Math.abs(candidate.x - last.x) <= 1e-6 &&
+		Math.abs(candidate.y - last.y) <= 1e-6
+	) continue;
 
-    const leftEdge = [];
+	result.push({ x: candidate.x, y: candidate.y });
+}
 
-    const rightEdge = [];
+return result;
+}
 
-    for (let i = 0; i < points.length; i++) {
+function sanitizePoints(points, tolerance = autoRoundConfig.minDistance, dedupe = autoRoundConfig.enabled) {
 
-      const current = points[i];
+	if (!Array.isArray(points)) return [];
 
-      if (!current) continue;
+	const cleaned = [];
 
-      const prev = points[i - 1] || current;
+	const safeTolerance = Number.isFinite(tolerance) && tolerance > 0 ? tolerance : 1;
 
-      const next = points[i + 1] || current;
+	for (let i = 0; i < points.length; i++) {
 
-      let dirX = next.x - prev.x;
+		const source = points[i];
 
-      let dirY = next.y - prev.y;
+		if (!source) continue;
 
-      if (!Number.isFinite(dirX) || !Number.isFinite(dirY) || (Math.abs(dirX) < 1e-6 && Math.abs(dirY) < 1e-6)) {
+		const x = Number(source.x);
 
-        if (i > 0) {
+		const y = Number(source.y);
 
-          dirX = current.x - prev.x;
+		if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
 
-          dirY = current.y - prev.y;
+		if (!dedupe || cleaned.length === 0) {
 
-        } else if (i < points.length - 1) {
+			cleaned.push({ x, y });
 
-          dirX = next.x - current.x;
+			continue;
 
-          dirY = next.y - current.y;
+		}
 
-        } else {
+		const prev = cleaned[cleaned.length - 1];
 
-          dirX = 0;
+		const dx = x - prev.x;
 
-          dirY = -1;
+		const dy = y - prev.y;
 
-        }
+		const dist = Math.hypot(dx, dy);
 
-      }
+		if (dist >= safeTolerance) {
 
-      const length = Math.hypot(dirX, dirY) || 1;
+			cleaned.push({ x, y });
 
-      const normalX = -dirY / length;
+		} else if (i === points.length - 1 && (Math.abs(dx) > 1e-6 || Math.abs(dy) > 1e-6)) {
 
-      const normalY = dirX / length;
+			cleaned[cleaned.length - 1] = { x, y };
 
-      const trackWidth = getPerspectiveWidth(current.y, safeBounds);
+		}
 
-      const half = trackWidth / 2;
+	}
 
-      leftEdge.push({
+	if (cleaned.length === 0) return [];
 
-        x: current.x + normalX * half,
+	return normalizeAnchorPath(cleaned, cleaned[0], { tolerance: safeTolerance, lift: getAnchorLift() });
 
-        y: current.y + normalY * half
+}
 
-      });
+function ensureAnchorHeadingUp(points, cfg = autoRoundConfig) {
 
-      rightEdge.push({
+	if (!Array.isArray(points) || points.length === 0) return [];
 
-        x: current.x - normalX * half,
+	const tolerance = Math.max(Number(cfg?.minDistance ?? 0.5), 0.5);
 
-        y: current.y - normalY * half
+	const lift = Math.max(getAnchorLift(), tolerance);
 
-      });
+	return normalizeAnchorPath(points, points[0], { tolerance, lift });
 
-    }
+}
 
-    const rightOutline = rightEdge.slice().reverse();
+function autoRoundPoints(points, cfg = autoRoundConfig) {
 
-    return {
+	const sanitized = sanitizePoints(points, cfg.minDistance, cfg.enabled);
 
-      outline: leftEdge.concat(rightOutline),
+	if (!cfg.enabled || !Array.isArray(sanitized) || sanitized.length < 3 || cfg.iterations <= 0) {
 
-      leftEdge,
+		return ensureAnchorHeadingUp(sanitized, cfg);
 
-      rightEdge: rightOutline
+	}
 
-    };
+	let result = ensureAnchorHeadingUp(sanitized, cfg);
 
-  }
+	for (let iter = 0; iter < cfg.iterations; iter++) {
 
-  function drawPerspectiveStrip(ctxRef, points, bounds, styleOverrides = {}) {
+		if (result.length < 3) break;
 
-    if (!ctxRef) return;
+		const next = [result[0]];
 
-    const strip = buildPerspectiveStrip(points, bounds);
+		for (let i = 0; i < result.length - 1; i++) {
 
-    if (!strip || strip.outline.length < 3) return;
+			const p0 = result[i];
 
-    const style = Object.assign({
+			const p1 = result[i + 1];
 
-      fillStyle: "rgba(57, 255, 136, 0.22)",
+			const q = {
 
-      strokeStyle: "#39ff88",
+				x: p0.x * 0.75 + p1.x * 0.25,
 
-      strokeWidth: 3.2
+				y: p0.y * 0.75 + p1.y * 0.25
 
-    }, styleOverrides || {});
+			};
 
-    const { outline } = strip;
+			const r = {
 
-    ctxRef.save();
+				x: p0.x * 0.25 + p1.x * 0.75,
 
-    ctxRef.fillStyle = style.fillStyle;
+				y: p0.y * 0.25 + p1.y * 0.75
 
-    ctxRef.beginPath();
+			};
 
-    ctxRef.moveTo(outline[0].x, outline[0].y);
+			next.push(q, r);
 
-    for (let i = 1; i < outline.length; i++) {
+		}
 
-      ctxRef.lineTo(outline[i].x, outline[i].y);
+		next.push(result[result.length - 1]);
 
-    }
+		result = ensureAnchorHeadingUp(next, cfg);
 
-    ctxRef.closePath();
+	}
 
-    ctxRef.fill();
+	return result;
 
-    ctxRef.strokeStyle = style.strokeStyle;
+}
 
-    ctxRef.lineWidth = style.strokeWidth;
+function getSurfaceBounds(surface) {
 
-    ctxRef.lineJoin = "round";
+	if (!surface) return null;
 
-    ctxRef.lineCap = "round";
+	if (typeof surface.getBoundingClientRect === "function") {
 
-    ctxRef.beginPath();
+		const rect = surface.getBoundingClientRect();
 
-    ctxRef.moveTo(points[0].x, points[0].y);
+		return { width: rect.width, height: rect.height };
 
-    for (let i = 1; i < points.length; i++) {
+	}
 
-      ctxRef.lineTo(points[i].x, points[i].y);
+	if (typeof surface.width === "number" && typeof surface.height === "number") {
 
-    }
+		return { width: surface.width, height: surface.height };
 
-    ctxRef.stroke();
+	}
 
-    ctxRef.restore();
+	return null;
 
-  }
+}
 
-  function appendPerspectiveTrack(target, points, bounds, options = {}) {
+function getPerspectiveWidth(y, bounds) {
 
-    if (!target || !Array.isArray(points) || points.length < 2) return null;
+	if (!bounds || !bounds.height) return perspectiveConfig.maxWidth;
 
-    const strip = buildPerspectiveStrip(points, bounds);
+	const safeY = typeof y === "number" ? y : 0;
 
-    if (!strip || strip.outline.length < 3) return null;
+	const normalized = Math.min(Math.max(bounds.height === 0 ? 0 : safeY / bounds.height, 0), 1);
 
-    const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+	const eased = Math.pow(normalized, perspectiveConfig.easingExponent);
 
-    if (options.role) group.dataset.role = options.role;
+	return perspectiveConfig.minWidth + (perspectiveConfig.maxWidth - perspectiveConfig.minWidth) * eased;
 
-    const outline = strip.outline;
+}
 
-    let d = "";
+function buildPerspectiveStrip(points, bounds) {
 
-    for (let i = 0; i < outline.length; i++) {
+	if (!Array.isArray(points) || points.length < 2) return null;
 
-      const cmd = i === 0 ? "M" : "L";
+	const safeBounds = bounds || { width: 0, height: 0 };
 
-      d += `${cmd}${outline[i].x} ${outline[i].y} `;
+	const centerline = autoRoundPoints(points);
 
-    }
+	if (!Array.isArray(centerline) || centerline.length < 2) return null;
 
-    d += "Z";
+	const leftEdge = [];
 
-    const fillPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+	const rightEdge = [];
 
-    fillPath.setAttribute("d", d.trim());
+	for (let i = 0; i < centerline.length; i++) {
 
-    fillPath.setAttribute("fill", options.fill ?? "#39ff88");
+		const current = centerline[i];
 
-    fillPath.setAttribute("fill-opacity", (options.fillOpacity ?? "0.35").toString());
+		if (!current) continue;
 
-    fillPath.setAttribute("stroke", options.stroke ?? "#39ff88");
+		// Keep strip caps horizontal regardless of heading by offsetting along X only.
 
-    fillPath.setAttribute("stroke-width", (options.strokeWidth ?? 1.1).toString());
+		const trackWidth = getPerspectiveWidth(current.y, safeBounds);
 
-    fillPath.setAttribute("stroke-linejoin", "round");
+		const half = trackWidth / 2;
 
-    fillPath.setAttribute("stroke-linecap", "round");
+		leftEdge.push({
 
-    fillPath.classList.add("drawn-path");
+			x: current.x - half,
 
-    group.appendChild(fillPath);
+			y: current.y
 
-    const centerPolyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+		});
 
-    centerPolyline.setAttribute("points", points.map(p => `${p.x},${p.y}`).join(" "));
+		rightEdge.push({
 
-    centerPolyline.setAttribute("fill", "none");
+			x: current.x + half,
 
-    centerPolyline.setAttribute("stroke", options.centerStroke ?? (options.stroke ?? "#39ff88"));
+			y: current.y
 
-    centerPolyline.setAttribute("stroke-width", (options.centerStrokeWidth ?? 1).toString());
+		});
 
-    centerPolyline.setAttribute("stroke-linecap", "round");
+	}
 
-    centerPolyline.setAttribute("stroke-linejoin", "round");
+	const rightOutline = rightEdge.slice().reverse();
 
-    centerPolyline.setAttribute("vector-effect", "non-scaling-stroke");
+	return {
 
-    if (options.centerDash) {
+		outline: leftEdge.concat(rightOutline),
 
-      centerPolyline.setAttribute("stroke-dasharray", options.centerDash);
+		leftEdge,
 
-    }
+		rightEdge: rightOutline,
 
-    centerPolyline.classList.add("drawn-path");
+		centerline
 
-    group.appendChild(centerPolyline);
+	};
 
-    if (options.zIndex != null) {
+}
 
-      group.style.zIndex = options.zIndex;
+function drawPerspectiveStrip(ctxRef, points, bounds, styleOverrides = {}) {
 
-    }
+	if (!ctxRef) return;
 
-    target.appendChild(group);
+	const strip = buildPerspectiveStrip(points, bounds);
 
-    return { group, strip };
+	if (!strip || strip.outline.length < 3) return;
 
-  }
+	const style = Object.assign({
 
-  function clearOverlayPreview() {
+		fillStyle: "rgba(57, 255, 136, 0.22)",
 
-    if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
+		strokeStyle: "#39ff88",
 
-    svgOverlay?.querySelector('[data-role="path-preview"]')?.remove();
+		strokeWidth: 3.2
 
-  }
+	}, styleOverrides || {});
 
-  function renderOverlayPreview(cursorX, cursorY) {
+	const { outline, centerline } = strip;
 
-    if (!drawMode) return;
+	ctxRef.save();
 
-    if (!Array.isArray(currentPath) || currentPath.length === 0) {
+	ctxRef.fillStyle = style.fillStyle;
 
-      clearOverlayPreview();
+	ctxRef.beginPath();
 
-      return;
+	ctxRef.moveTo(outline[0].x, outline[0].y);
 
-    }
+	for (let i = 1; i < outline.length; i++) {
 
-    if (cursorX === null || cursorY === null) {
+		ctxRef.lineTo(outline[i].x, outline[i].y);
 
-      clearOverlayPreview();
+	}
 
-      return;
+	ctxRef.closePath();
 
-    }
+	ctxRef.fill();
 
-    if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
+	ctxRef.strokeStyle = style.strokeStyle;
 
-    if (!svgOverlay) return;
+	ctxRef.lineWidth = style.strokeWidth;
 
-    clearOverlayPreview();
+	ctxRef.lineJoin = "round";
 
-    const previewPoints = currentPath.concat({ x: cursorX, y: cursorY });
+	ctxRef.lineCap = "round";
 
-    const bounds = getSurfaceBounds(svgOverlay) || getSurfaceBounds(canvas);
+	const centerPath = Array.isArray(centerline) && centerline.length > 1 ? centerline : points;
 
-    if (!bounds) return;
+	ctxRef.beginPath();
 
-    appendPerspectiveTrack(svgOverlay, previewPoints, bounds, {
+	ctxRef.moveTo(centerPath[0].x, centerPath[0].y);
 
-      role: "path-preview",
+	for (let i = 1; i < centerPath.length; i++) {
 
-      fill: "#39ff88",
+		ctxRef.lineTo(centerPath[i].x, centerPath[i].y);
 
-      fillOpacity: "0.18",
+	}
 
-      stroke: "#39ff88",
+	ctxRef.stroke();
 
-      strokeWidth: 0.9,
+	ctxRef.restore();
 
-      centerStrokeWidth: 1.8,
+}
 
-      centerDash: "10 10"
+function appendPerspectiveTrack(target, points, bounds, options = {}) {
 
-    });
+	if (!target || !Array.isArray(points) || points.length < 2) return null;
 
-  }
+	const strip = buildPerspectiveStrip(points, bounds);
 
-  window.toggleDrawMode = function() {
+	if (!strip || strip.outline.length < 3) return null;
 
-    drawMode = !drawMode;
+	const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
 
-    const btn = document.getElementById("drawPathBtn");
+	if (options.role) group.dataset.role = options.role;
 
-    btn.style.backgroundColor = drawMode ? "#4CAF50" : "#444";
+	const outline = strip.outline;
 
-    btn.innerText = drawMode ? "✏️ Drawing..." : "✏️ Draw Path";
+	let d = "";
 
-    canvas = document.getElementById("drawingCanvas");
+	for (let i = 0; i < outline.length; i++) {
 
-    svgOverlay = document.getElementById("drawingOverlay");
+		const cmd = i === 0 ? "M" : "L";
 
-    if (drawMode) {
+		d += `${cmd}${outline[i].x} ${outline[i].y} `;
 
-      // ✅ Show IMU/Encoder warning
+	}
 
-      const old = document.getElementById("imuWarning");
+	d += "Z";
 
-      if (old) old.remove();
+	const fillPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
 
-      const warning = document.createElement("div");
+	fillPath.setAttribute("d", d.trim());
 
-      warning.id = "imuWarning";
+	fillPath.setAttribute("fill", options.fill ?? "#39ff88");
 
-      warning.innerText = "⚠️ This feature requires MPU9250 and Encoders. DEMO mode only!";
+	fillPath.setAttribute("fill-opacity", (options.fillOpacity ?? "0.35").toString());
 
-      document.body.appendChild(warning);
+	fillPath.setAttribute("stroke", options.stroke ?? "#39ff88");
 
-      // Auto-remove warning after 4 seconds
+	fillPath.setAttribute("stroke-width", (options.strokeWidth ?? 1.1).toString());
 
-      setTimeout(() => warning.remove(), 4000);
+	fillPath.setAttribute("stroke-linejoin", "round");
 
-      // ✅ Initialize canvas
+	fillPath.setAttribute("stroke-linecap", "round");
 
-      canvas.width = window.innerWidth;
+	fillPath.classList.add("drawn-path");
 
-      canvas.height = window.innerHeight;
+	group.appendChild(fillPath);
 
-      canvas.style.pointerEvents = "auto";
+	const centerPolyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
 
-      canvas.style.cursor = "crosshair";
+	const centerlinePoints = Array.isArray(strip.centerline) && strip.centerline.length > 1 ? strip.centerline : points;
 
-      canvas.style.zIndex = "20";
+	centerPolyline.setAttribute("points", centerlinePoints.map(p => `${p.x},${p.y}`).join(" "));
 
-      document.body.style.cursor = "crosshair";
+	centerPolyline.setAttribute("fill", "none");
 
-      drawingPoints = [];
+	centerPolyline.setAttribute("stroke", options.centerStroke ?? (options.stroke ?? "#39ff88"));
 
-      currentPath = [];
+	centerPolyline.setAttribute("stroke-width", (options.centerStrokeWidth ?? 1).toString());
 
-      const cam = document.getElementById("cameraStream");
+	centerPolyline.setAttribute("stroke-linecap", "round");
 
-      const camRect = cam.getBoundingClientRect();
+	centerPolyline.setAttribute("stroke-linejoin", "round");
 
-      const canvasRect = canvas.getBoundingClientRect();
+	centerPolyline.setAttribute("vector-effect", "non-scaling-stroke");
 
-      const anchorX = camRect.left + camRect.width / 2 - canvasRect.left;
+	if (options.centerDash) {
 
-      const anchorY = camRect.bottom - canvasRect.top;
+		centerPolyline.setAttribute("stroke-dasharray", options.centerDash);
 
-      drawingPoints.push({ x: anchorX, y: anchorY });
+	}
 
-      currentPath.push({ x: anchorX, y: anchorY });
+	centerPolyline.classList.add("drawn-path");
 
-      renderPath();          // draw START button immediately
+	group.appendChild(centerPolyline);
 
-      renderPath(false);     // force START rendering, even after wipe
+	if (options.zIndex != null) {
 
-      canvas.addEventListener("mousemove", handleMouseMove);
+		group.style.zIndex = options.zIndex;
 
-      canvas.addEventListener("mousedown", handleCanvasClick);
+	}
 
-      canvas.addEventListener("contextmenu", stopDrawing);
+	target.appendChild(group);
 
-      redrawCanvas();
+	return { group, strip };
 
-    } else {
+}
 
-      cleanupDrawing(); // also disables pointerEvents
+function clearOverlayPreview() {
 
-    }
+	if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
 
-  }
+	svgOverlay?.querySelector('[data-role="path-preview"]')?.remove();
 
-  function handleMouseMove(e) {
+}
 
-    if (!drawMode || drawingPoints.length === 0) return;
+function renderOverlayPreview(cursorX, cursorY) {
 
-    const rect = canvas.getBoundingClientRect();
+	if (!drawMode) return;
 
-    const x = e.clientX - rect.left;
+	if (!Array.isArray(currentPath) || currentPath.length === 0) {
 
-    const y = e.clientY - rect.top;
+		clearOverlayPreview();
 
-    redrawCanvas(x, y); // live preview line with perspective
+		return;
 
-  }
+	}
 
-  function handleCanvasClick(e) {
+	if (cursorX === null || cursorY === null) {
 
-    if (e.button === 0) { // Left click
+		clearOverlayPreview();
 
-      const rect = canvas.getBoundingClientRect();
+		return;
 
-      const x = e.clientX - rect.left;
+	}
 
-      const y = e.clientY - rect.top;
+	if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
 
-      drawingPoints.push({ x, y });
+	if (!svgOverlay) return;
 
-      redrawCanvas();           // Optional: keep canvas for debugging
+	clearOverlayPreview();
 
-      addPointToPath(x, y);     // ✅ REQUIRED to draw to SVG overlay
+	const previewPoints = currentPath.concat({ x: cursorX, y: cursorY });
 
-      console.log("Point added to SVG:", x, y);
+	const bounds = getSurfaceBounds(svgOverlay) || getSurfaceBounds(canvas);
 
-    }
+	if (!bounds) return;
 
-  }
+	appendPerspectiveTrack(svgOverlay, previewPoints, bounds, {
 
-  function redrawCanvas(cursorX = null, cursorY = null) {
+		role: "path-preview",
+
+		fill: "#39ff88",
+
+		fillOpacity: "0.18",
+
+		stroke: "#39ff88",
+
+		strokeWidth: 0.9,
+
+		centerStrokeWidth: 1.8,
+
+		centerDash: "10 10"
+
+	});
+
+}
+
+window.toggleDrawMode = function() {
+
+	drawMode = !drawMode;
+
+	const btn = document.getElementById("drawPathBtn");
+
+	btn.style.backgroundColor = drawMode ? "#4CAF50" : "#444";
+
+	btn.innerText = drawMode ? "✏️ Drawing..." : "✏️ Draw Path";
+
+	canvas = document.getElementById("drawingCanvas");
+
+	svgOverlay = document.getElementById("drawingOverlay");
+
+	if (drawMode) {
+
+		// ✅ Show IMU/Encoder warning
+
+		const old = document.getElementById("imuWarning");
+
+		if (old) old.remove();
+
+		const warning = document.createElement("div");
+
+		warning.id = "imuWarning";
+
+		warning.innerText = "⚠️ This feature requires MPU9250 and Encoders. DEMO mode only!";
+
+		document.body.appendChild(warning);
+
+		// Auto-remove warning after 4 seconds
+
+		setTimeout(() => warning.remove(), 4000);
+
+		// ✅ Initialize canvas
+
+		canvas.width = window.innerWidth;
+
+		canvas.height = window.innerHeight;
+
+		canvas.style.pointerEvents = "auto";
+
+		canvas.style.cursor = "crosshair";
+
+		canvas.style.zIndex = "20";
+
+		document.body.style.cursor = "crosshair";
+
+		drawingPoints = [];
+
+		currentPath = [];
+
+		const cam = document.getElementById("cameraStream");
+
+		const camRect = cam.getBoundingClientRect();
+
+		const canvasRect = canvas.getBoundingClientRect();
+
+		const anchorX = camRect.left + camRect.width / 2 - canvasRect.left;
+
+		const anchorY = camRect.bottom - canvasRect.top;
+
+		drawingPoints.push({ x: anchorX, y: anchorY });
+
+		currentPath.push({ x: anchorX, y: anchorY });
+
+		renderPath();          // draw START button immediately
+
+		renderPath(false);     // force START rendering, even after wipe
+
+		canvas.addEventListener("mousemove", handleMouseMove);
+
+		canvas.addEventListener("mousedown", handleCanvasClick);
+
+		canvas.addEventListener("contextmenu", stopDrawing);
+
+		redrawCanvas();
+
+	} else {
+
+		cleanupDrawing(); // also disables pointerEvents
+
+	}
+
+}
+
+function handleMouseMove(e) {
+
+	if (!drawMode || drawingPoints.length === 0) return;
+
+	const rect = canvas.getBoundingClientRect();
+
+	const x = e.clientX - rect.left;
+
+	const y = e.clientY - rect.top;
+
+	redrawCanvas(x, y); // live preview line with perspective
+
+}
+
+function handleCanvasClick(e) {
+
+	if (e.button === 0) { // Left click
+
+		const rect = canvas.getBoundingClientRect();
+
+		const x = e.clientX - rect.left;
+
+		const y = e.clientY - rect.top;
+
+		drawingPoints.push({ x, y });
+
+		redrawCanvas();           // Optional: keep canvas for debugging
+
+		addPointToPath(x, y);     // ✅ REQUIRED to draw to SVG overlay
+
+		console.log("Point added to SVG:", x, y);
+
+	}
+
+}
+
+function redrawCanvas(cursorX = null, cursorY = null) {
 
     if (!ctx) ctx = canvas.getContext("2d");
 
@@ -516,166 +700,179 @@
 
   }
 
+function drawPlayButton(x, y, size = 20, color = "yellow", outline = false) {
+  if (!ctx) return;
 
-  function drawPlayButton(x, y) {
+  ctx.save();
+  ctx.imageSmoothingEnabled = true;             // ✅ smooth edges
+  ctx.globalCompositeOperation = "source-over"; // ✅ normal blend
+  ctx.fillStyle = color;
+  ctx.strokeStyle = color;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
 
-    ctx.fillStyle = "yellow";
+  // Center-based equilateral triangle (points right)
+  const half = size / 2;
+  const height = size * 0.6; // visual balance factor
 
-    ctx.beginPath();
+  ctx.beginPath();
+  ctx.moveTo(x + half, y);           // right tip
+  ctx.lineTo(x - half, y - height);  // top-left
+  ctx.lineTo(x - half, y + height);  // bottom-left
+  ctx.closePath();
 
-    ctx.moveTo(x + 10, y);
-
-    ctx.lineTo(x, y - 10);
-
-    ctx.lineTo(x, y + 10);
-
-    ctx.closePath();
-
+  if (outline) {
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  } else {
     ctx.fill();
-
   }
 
-  function stopDrawing(e) {
+  ctx.restore();
+}
 
-    if (e) e.preventDefault();
 
-    drawMode = false;
+function stopDrawing(e) {
 
-    canvas.removeEventListener("mousemove", handleMouseMove);
+	if (e) e.preventDefault();
 
-    canvas.removeEventListener("mousedown", handleCanvasClick);
+	drawMode = false;
 
-    canvas.removeEventListener("contextmenu", stopDrawing);
+	canvas.removeEventListener("mousemove", handleMouseMove);
 
-    // ✅ Fix: stop blocking other UI
+	canvas.removeEventListener("mousedown", handleCanvasClick);
 
-    canvas.style.pointerEvents = "none";
+	canvas.removeEventListener("contextmenu", stopDrawing);
 
-    canvas.style.cursor = "default";
+	// ✅ Fix: stop blocking other UI
 
-    canvas.style.zIndex = "-1"; // ✅ Push canvas behind everything
+	canvas.style.pointerEvents = "none";
 
-    document.body.style.cursor = "default";
+	canvas.style.cursor = "default";
 
-    // ✅ Fully clear canvas to remove overlay hitbox
+	canvas.style.zIndex = "-1"; // ✅ Push canvas behind everything
 
-    canvas.width = 0;
+	document.body.style.cursor = "default";
 
-    canvas.height = 0;
+	// ✅ Fully clear canvas to remove overlay hitbox
 
-    clearOverlayPreview();
+	canvas.width = 0;
 
-    const btn = document.getElementById("drawPathBtn");
+	canvas.height = 0;
 
-    btn.innerText = "✏️ Draw Path";
+	clearOverlayPreview();
 
-    btn.style.backgroundColor = "#444";
+	const btn = document.getElementById("drawPathBtn");
 
-    renderPath(true); // ✅ show STOP button
+	btn.innerText = "✏️ Draw Path";
 
-  }
+	btn.style.backgroundColor = "#444";
 
-  function cleanupDrawing() {
+	renderPath(true); // ✅ show STOP button
 
-    if (!canvas) return;
+}
 
-    canvas.removeEventListener("mousemove", handleMouseMove);
+function cleanupDrawing() {
 
-    canvas.removeEventListener("mousedown", handleCanvasClick);
+	if (!canvas) return;
 
-    canvas.removeEventListener("contextmenu", stopDrawing);
+	canvas.removeEventListener("mousemove", handleMouseMove);
 
-    canvas.style.pointerEvents = "none";
+	canvas.removeEventListener("mousedown", handleCanvasClick);
 
-    canvas.style.cursor = "default";
+	canvas.removeEventListener("contextmenu", stopDrawing);
 
-    document.body.style.cursor = "default";
+	canvas.style.pointerEvents = "none";
 
-    clearOverlayPreview();
+	canvas.style.cursor = "default";
 
-  }
+	document.body.style.cursor = "default";
 
-  window.addEventListener("resize", () => {
+	clearOverlayPreview();
 
-    const canvas = document.getElementById("drawingCanvas");
+}
 
-    if (canvas && drawMode) {
+window.addEventListener("resize", () => {
 
-      canvas.width = window.innerWidth;
+	const canvas = document.getElementById("drawingCanvas");
 
-      canvas.height = window.innerHeight;
+	if (canvas && drawMode) {
 
-      redrawCanvas(); // <- redraw current path
+		canvas.width = window.innerWidth;
 
-    }
+		canvas.height = window.innerHeight;
 
-  });
+		redrawCanvas(); // <- redraw current path
 
-  function clearDrawing() {
+	}
 
-    if (!ctx || !canvas || !svgOverlay) return;
+});
 
-    // Clear path data
+function clearDrawing() {
 
-    drawingPoints = [];
+	if (!ctx || !canvas || !svgOverlay) return;
 
-    currentPath = [];
+	// Clear path data
 
-    // Clear visuals
+	drawingPoints = [];
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+	currentPath = [];
 
-    svgOverlay.innerHTML = ""; // ✅ Remove drawn polyline/arrow/nodes
+	// Clear visuals
 
-    // Clear buttons
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const pathButtons = document.getElementById("pathControlButtons");
+	svgOverlay.innerHTML = ""; // ✅ Remove drawn polyline/arrow/nodes
 
-    pathButtons.innerHTML = "";                // ✅ Remove START/STOP buttons
+	// Clear buttons
 
-    document.getElementById("startButton")?.remove(); // ✅ extra safety
+	const pathButtons = document.getElementById("pathControlButtons");
 
-    document.getElementById("stopButton")?.remove();
+	pathButtons.innerHTML = "";                // ✅ Remove START/STOP buttons
 
-    pathButtons.style.pointerEvents = "none";  // ✅ Prevent hitbox bug
+	document.getElementById("startButton")?.remove(); // ✅ extra safety
 
-    // Reset cursors
+	document.getElementById("stopButton")?.remove();
 
-    canvas.style.cursor = "default";
+	pathButtons.style.pointerEvents = "none";  // ✅ Prevent hitbox bug
 
-    document.body.style.cursor = "default";
+	// Reset cursors
 
-    console.log("🧹 Drawing cleared");
+	canvas.style.cursor = "default";
 
-  }
+	document.body.style.cursor = "default";
 
-  function addPointToPath(x, y) {
+	console.log("🧹 Drawing cleared");
 
-    currentPath.push({ x, y });
+}
 
-    renderPath();
+function addPointToPath(x, y) {
 
-  }
+	currentPath.push({ x, y });
 
-  function rotateNodeAt(x, y) {
+	renderPath();
 
-    alert(`Rotate node clicked at (${x.toFixed(0)}, ${y.toFixed(0)})`);
+}
 
-    // Later: open angle input or rotate arrow preview
+function rotateNodeAt(x, y) {
 
-  }
+	alert(`Rotate node clicked at (${x.toFixed(0)}, ${y.toFixed(0)})`);
 
-  function handleStopClick() {
+	// Later: open angle input or rotate arrow preview
 
-    showToast("🛑 Stop triggered");
+}
 
-    console.log("Stop button clicked");
+function handleStopClick() {
 
-    // Add actual command logic here
+	showToast("🛑 Stop triggered");
 
-  }
+	console.log("Stop button clicked");
 
-  function renderPath(showStopOnly = false) {
+	// Add actual command logic here
+
+}
+
+function renderPath(showStopOnly = false) {
 
     // Grab overlay and button container
 
@@ -693,31 +890,23 @@
 
     if (!svgBounds) return;
 
+    let latestStrip = null;
+
     // Default start point (bottom-center of overlay)
 
     const startPoint = { x: svgBounds.width / 2, y: svgBounds.height - 10 };
 
     // Ensure path starts from the anchor (with small tolerance)
 
-    if (!Array.isArray(currentPath) || currentPath.length === 0) {
+    const anchorTolerance = 0.5;
 
-      currentPath = [startPoint];
+    const normalizedPath = normalizeAnchorPath(currentPath, startPoint, { tolerance: anchorTolerance, lift: getAnchorLift() });
 
-    } else {
-
-      const p0 = currentPath[0];
-
-      if (Math.abs(p0.x - startPoint.x) > 0.5 || Math.abs(p0.y - startPoint.y) > 0.5) {
-
-        currentPath.unshift(startPoint);
-
-      }
-
-    }
+    currentPath = normalizedPath.length ? normalizedPath : [startPoint, { x: startPoint.x, y: Math.max(0, startPoint.y - getAnchorLift()) }];
 
     if (currentPath.length > 1) {
 
-      appendPerspectiveTrack(svgOverlay, currentPath, svgBounds, {
+      const result = appendPerspectiveTrack(svgOverlay, currentPath, svgBounds, {
 
         role: "path-track",
 
@@ -732,6 +921,8 @@
         centerStrokeWidth: 1.6
 
       });
+
+      latestStrip = result?.strip ?? null;
 
     }
 
@@ -763,9 +954,13 @@
 
       startBtn.onclick = () => {
 
+        const sourcePath = latestStrip?.centerline && latestStrip.centerline.length > 1 ? latestStrip.centerline : currentPath;
+
+        const payload = sourcePath.map(p => ({ x: p.x, y: p.y }));
+
         if (window.websocketCarInput && window.websocketCarInput.readyState === WebSocket.OPEN) {
 
-          window.websocketCarInput.send("PATH," + JSON.stringify(currentPath));
+          window.websocketCarInput.send("PATH," + JSON.stringify(payload));
 
           window.showToast?.("dYs- Path sent to robot!");
 
