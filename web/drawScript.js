@@ -255,63 +255,57 @@ function getPerspectiveWidth(y, bounds) {
 }
 
 function buildPerspectiveStrip(points, bounds) {
+  if (!Array.isArray(points) || points.length < 2) return null;
 
-	if (!Array.isArray(points) || points.length < 2) return null;
+  const safeBounds = bounds || { width: 0, height: 0 };
+  const H = Number(safeBounds.height || 0);
 
-	const safeBounds = bounds || { width: 0, height: 0 };
+  // centerline as you already compute it
+  const centerline = autoRoundPoints(points);
+  if (!Array.isArray(centerline) || centerline.length < 2) return null;
 
-	const centerline = autoRoundPoints(points);
+  const leftEdge  = [];
+  const rightEdge = [];
 
-	if (!Array.isArray(centerline) || centerline.length < 2) return null;
+  for (let i = 0; i < centerline.length; i++) {
+    const p = centerline[i];
 
-	const leftEdge = [];
+    // --- smoothed tangent (neighbors) ---
+    let tx = 0, ty = 0;
+    if (i > 0) { tx += p.x - centerline[i - 1].x; ty += p.y - centerline[i - 1].y; }
+    if (i < centerline.length - 1) { tx += centerline[i + 1].x - p.x; ty += centerline[i + 1].y - p.y; }
+    let mag = Math.hypot(tx, ty);
+    if (mag < 1e-6) {                    // fallback to forward/back span
+      const j = Math.min(centerline.length - 1, i + 1);
+      const k = Math.max(0, i - 1);
+      tx = centerline[j].x - centerline[k].x;
+      ty = centerline[j].y - centerline[k].y;
+      mag = Math.hypot(tx, ty) || 1;
+    }
+    tx /= mag; ty /= mag;
 
-	const rightEdge = [];
+    // LEFT-hand normal (prevents flipping)
+    const nx = -ty, ny = tx;
 
-	for (let i = 0; i < centerline.length; i++) {
+    // --- perspective width with Y taper (base untouched, top is 1/2) ---
+    const baseW = getPerspectiveWidth(p.y, safeBounds);
+    const t     = H > 0 ? Math.max(0, Math.min(1, (H - p.y) / H)) : 0; // 0 bottom, 1 top
+    const yTaper = 1 - 0.5 * t;  // 1.0 at bottom -> 0.5 at top
+    const trackW = baseW * yTaper;
+    const half   = trackW * 0.5;
 
-		const current = centerline[i];
+    leftEdge.push({  x: p.x - nx * half, y: p.y - ny * half });
+    rightEdge.push({ x: p.x + nx * half, y: p.y + ny * half });
+  }
 
-		if (!current) continue;
-
-		// Keep strip caps horizontal regardless of heading by offsetting along X only.
-
-		const trackWidth = getPerspectiveWidth(current.y, safeBounds);
-
-		const half = trackWidth / 2;
-
-		leftEdge.push({
-
-			x: current.x - half,
-
-			y: current.y
-
-		});
-
-		rightEdge.push({
-
-			x: current.x + half,
-
-			y: current.y
-
-		});
-
-	}
-
-	const rightOutline = rightEdge.slice().reverse();
-
-	return {
-
-		outline: leftEdge.concat(rightOutline),
-
-		leftEdge,
-
-		rightEdge: rightOutline,
-
-		centerline
-
-	};
-
+  // outline uses right reversed to close (keeps compatibility with your code)
+  const rightOutline = rightEdge.slice().reverse();
+  return {
+    outline: leftEdge.concat(rightOutline),
+    leftEdge,
+    rightEdge: rightOutline, // (reversed) matches your existing consumers
+    centerline
+  };
 }
 
 function drawPerspectiveStrip(ctxRef, points, bounds, styleOverrides = {}) {
@@ -378,98 +372,346 @@ function drawPerspectiveStrip(ctxRef, points, bounds, styleOverrides = {}) {
 
 }
 
+// Triangle stream: speed ∝ size (smaller -> slower), no-overlap spacing in arc-length.
+function attachTriangleStream(targetGroup, centerlinePoints, style = {}) {
+  if (!targetGroup || !Array.isArray(centerlinePoints) || centerlinePoints.length < 2) return null;
+
+  // ---- options ----
+  const duration      = Math.max(400, Number(style.duration ?? 2400)); // ms for one loop
+  const facing        = (style.facing || "down").toLowerCase();        // "up" | "down"
+  const fill          = style.fill ?? "#ffe900";
+  const fillOpacity   = Number.isFinite(style.fillOpacity) ? Number(style.fillOpacity) : 0.85;
+  const stroke        = style.stroke ?? "#ffe900";
+  const strokeWidth   = Math.max(0, Number(style.strokeWidth ?? 2));
+
+  const widthFn       = typeof style.widthFn === "function" ? style.widthFn : null;
+  const fallbackWidth = Number.isFinite(style.fallbackWidth) ? Number(style.fallbackWidth) : 60;
+  const heightRatio   = Number.isFinite(style.heightRatio) ? Number(style.heightRatio) : 0.275;
+  const edgeInset     = Number.isFinite(style.edgeInset) ? style.edgeInset : 0;
+
+  const startOffsetPx = Math.max(0, Number(style.startOffsetPx ?? 120));
+  const endOffsetPx   = Math.max(0, Number(style.endOffsetPx   ?? 110));
+  const cullNarrowPx  = Math.max(0, Number(style.cullNarrowPx  ?? 8));
+
+  const gapRatio      = Number.isFinite(style.gapRatio) ? style.gapRatio : 0.35; // gap vs height
+  const minSpacingPx  = Math.max(6, Number(style.minSpacingPx ?? 18));
+
+  // size->speed scaling: scale = minScale + (1 - minScale) * (H/Hmax)^exp
+  // => smaller H => scale closer to minScale (slower), larger H => scale→1 (faster)
+  const speedExponent = Number.isFinite(style.speedExponent) ? style.speedExponent : 1.2;
+  const minScale      = Number.isFinite(style.minScale) ? style.minScale : 0.35;
+
+  // lane edges (forward order preferred)
+  const leftEdge  = Array.isArray(style.laneLeft)  && style.laneLeft.length  > 1 ? style.laneLeft  : null;
+  const rightEdge = Array.isArray(style.laneRight) && style.laneRight.length > 1 ? style.laneRight : null;
+
+  // ---- centerline arc-length table ----
+  function buildTable(pts){ const segs=[]; let total=0;
+    for (let i=0;i<pts.length-1;i++){
+      const a=pts[i], b=pts[i+1], dx=b.x-a.x, dy=b.y-a.y, len=Math.hypot(dx,dy);
+      if(len<1e-6) continue;
+      segs.push({a,b,dx,dy,len,start:total,end:total+len}); total+=len;
+    }
+    return {segs,total};
+  }
+  const tbl = buildTable(centerlinePoints);
+  if (!tbl.segs.length) return null;
+
+  function sampleAtLen(s){
+    if (s <= 0) { const f = tbl.segs[0]; const m=f.len||1; return {x:f.a.x,y:f.a.y,tx:f.dx/m,ty:f.dy/m, idx:0}; }
+    if (s >= tbl.total) { const l = tbl.segs[tbl.segs.length-1]; const m=l.len||1; return {x:l.b.x,y:l.b.y,tx:l.dx/m,ty:l.dy/m, idx:tbl.segs.length-1}; }
+    for (let i=0;i<tbl.segs.length;i++){
+      const sg=tbl.segs[i];
+      if (s <= sg.end){
+        const t=(s - sg.start)/sg.len;
+        let tx = sg.dx/sg.len, ty = sg.dy/sg.len;
+        if (i > 0){ tx += tbl.segs[i-1].dx/tbl.segs[i-1].len; ty += tbl.segs[i-1].dy/tbl.segs[i-1].len; }
+        if (i < tbl.segs.length-1){ tx += tbl.segs[i+1].dx/tbl.segs[i+1].len; ty += tbl.segs[i+1].dy/tbl.segs[i+1].len; }
+        const m = Math.hypot(tx,ty) || 1; tx/=m; ty/=m;
+        return { x: sg.a.x + sg.dx * t, y: sg.a.y + sg.dy * t, tx, ty, idx:i };
+      }
+    }
+    const l = tbl.segs[tbl.segs.length-1], m=l.len||1;
+    return { x:l.b.x, y:l.b.y, tx:l.dx/m, ty:l.dy/m, idx:tbl.segs.length-1 };
+  }
+
+  const widthAt = (pt,i)=> {
+    const w = widthFn ? Number(widthFn(pt,i)) : fallbackWidth;
+    return Math.max(10, Number.isFinite(w) ? w : fallbackWidth);
+  };
+
+  // ---- normal-line intersections to find base width ----
+  const cross=(ax,ay,bx,by)=> ax*by - ay*bx;
+  function lineSegIntersect(P,R,A,B){
+    const Sx=B.x-A.x, Sy=B.y-A.y, denom = cross(R.x,R.y,Sx,Sy);
+    if (Math.abs(denom) < 1e-9) return null;
+    const Qx=A.x-P.x, Qy=A.y-P.y;
+    const u = cross(Qx,Qy,Sx,Sy) / denom;     // along normal line
+    const v = cross(Qx,Qy,R.x,R.y) / denom;   // along segment
+    if (v < 0 || v > 1) return null;
+    return {u, x:P.x + R.x*u, y:P.y + R.y*u};
+  }
+  function normalIntersections(C, n, poly){
+    let pos=null, neg=null, up=Infinity, un=-Infinity;
+    for (let i=0;i<poly.length-1;i++){
+      const hit = lineSegIntersect(C, n, poly[i], poly[i+1]);
+      if (!hit) continue;
+      if (hit.u>0 && hit.u<up){ up=hit.u; pos={x:hit.x,y:hit.y}; }
+      if (hit.u<0 && hit.u>un){ un=hit.u; neg={x:hit.x,y:hit.y}; }
+    }
+    return {pos,neg};
+  }
+
+  function baseWidthAtS(s){
+    const c = sampleAtLen(s);
+    let tx=c.tx, ty=c.ty; if (facing === "down") { tx=-tx; ty=-ty; }
+    const n = { x:-ty, y:tx };
+    if (leftEdge && rightEdge){
+      const L = normalIntersections({x:c.x,y:c.y}, n, leftEdge);
+      const R = normalIntersections({x:c.x,y:c.y}, n, rightEdge);
+      let BL=null, BR=null;
+      if (L.pos && R.neg) { BL = L.pos; BR = R.neg; }
+      else if (L.neg && R.pos) { BL = L.neg; BR = R.pos; }
+      if (BL && BR) return Math.hypot(BR.x - BL.x, BR.y - BL.y);
+    }
+    return widthAt({x:c.x,y:c.y}, c.idx);
+  }
+  const triHeightAtS = (s)=> Math.max(4, baseWidthAtS(s) * heightRatio);
+
+  // ---- spacing (no overlap): use tallest triangle along usable path ----
+  const usableLen = Math.max(0, tbl.total - startOffsetPx - endOffsetPx);
+  let spacingPx = minSpacingPx, Hmax = 0;
+
+  if (usableLen > 0) {
+    const samples = Math.max(12, Math.floor(usableLen / 60)); // ~1 per 60px
+    for (let i=0;i<=samples;i++){
+      const s = startOffsetPx + (usableLen * i / samples);
+      const H = triHeightAtS(s);
+      if (H > Hmax) Hmax = H;
+    }
+    spacingPx = Math.max(minSpacingPx, Hmax * (1 + gapRatio));
+  }
+
+  // ---- triangle path at arc-length s ----
+  function trianglePathAtS(s){
+    const c = sampleAtLen(s);
+    let tx=c.tx, ty=c.ty; if (facing === "down"){ tx=-tx; ty=-ty; }
+    const n = { x:-ty, y:tx };
+
+    // base from edge intersections (fallback to normal offsets)
+    let BL=null, BR=null;
+    if (leftEdge && rightEdge){
+      const L = normalIntersections({x:c.x,y:c.y}, n, leftEdge);
+      const R = normalIntersections({x:c.x,y:c.y}, n, rightEdge);
+      if (L.pos && R.neg){
+        BL = { x:L.pos.x - n.x*edgeInset, y:L.pos.y - n.y*edgeInset };
+        BR = { x:R.neg.x + n.x*edgeInset, y:R.neg.y + n.y*edgeInset };
+      } else if (L.neg && R.pos){
+        BL = { x:L.neg.x - n.x*edgeInset, y:L.neg.y - n.y*edgeInset };
+        BR = { x:R.pos.x + n.x*edgeInset, y:R.pos.y + n.y*edgeInset };
+      }
+    }
+    if (!BL || !BR){
+      const half = widthAt({x:c.x,y:c.y}, c.idx) * 0.5;
+      BL = BL || { x:c.x - n.x*half, y:c.y - n.y*half };
+      BR = BR || { x:c.x + n.x*half, y:c.y + n.y*half };
+    }
+
+    const baseW = Math.hypot(BR.x - BL.x, BR.y - BL.y);
+    if (baseW < cullNarrowPx) return "";
+
+    const H = Math.max(4, baseW * heightRatio);
+
+    // apex ON centerline by arc-length
+    const sApex = Math.max(0, Math.min(tbl.total, (facing === "up" ? s + H : s - H)));
+    const aPt = sampleAtLen(sApex);
+    const A = { x: aPt.x, y: aPt.y };
+
+    return `M ${BL.x} ${BL.y} L ${BR.x} ${BR.y} L ${A.x} ${A.y} Z`;
+  }
+
+  // ---- create path elements (auto count from spacing) ----
+  const count = (usableLen > 0) ? Math.max(1, Math.floor(usableLen / spacingPx)) : 1;
+
+  if (targetGroup.__triangleAnimation?.stop) targetGroup.__triangleAnimation.stop();
+  const layer = document.createElementNS("http://www.w3.org/2000/svg","g");
+  targetGroup.appendChild(layer);
+
+  const tris=[];
+  for (let i=0;i<count;i++){
+    const p=document.createElementNS("http://www.w3.org/2000/svg","path");
+    p.setAttribute("fill", fill);
+    p.setAttribute("fill-opacity", String(fillOpacity));
+    p.setAttribute("stroke", stroke);
+    p.setAttribute("stroke-width", String(strokeWidth));
+    p.setAttribute("stroke-linejoin", "round");
+    p.setAttribute("stroke-linecap", "round");
+    layer.appendChild(p);
+    tris.push(p);
+  }
+
+  // ---- animate: head moves in arc-length with speed ∝ size(head) ----
+  const baseSpeed = (usableLen > 0) ? (usableLen / duration) : 0; // px per ms
+  const state = { running: true, prevTs: 0, headS: startOffsetPx, raf: 0 };
+
+	function speedScaleAt(s){
+		if (Hmax <= 0) return 1;
+		const H = triHeightAtS(s);
+		const ratio = Math.max(0, Math.min(1, H / Hmax));
+
+		// base size->speed: smaller H => closer to minScale, larger H => 1
+		const base = minScale + (1 - minScale) * Math.pow(ratio, speedExponent);
+
+		// sizeEffect: 1 = full effect, 0.5 = half (less variation), 2 = double (more variation)
+		const sizeEffect = Number.isFinite(style.sizeEffect) ? style.sizeEffect : 1;
+
+		const scaled = 1 - sizeEffect * (1 - base);
+		return Math.max(0.01, Math.min(1, scaled));
+	}
+
+  function frame(ts){
+    if (!state.running) return;
+    if (!state.prevTs) state.prevTs = ts;
+
+    const dt = ts - state.prevTs; // ms
+    state.prevTs = ts;
+
+    if (usableLen <= 0){
+      for (const el of tris) el.setAttribute("d", "");
+      state.raf = requestAnimationFrame(frame);
+      return;
+    }
+
+    // advance head in s-space with size-based speed
+    const scale = speedScaleAt(state.headS);
+    state.headS += baseSpeed * scale * dt;
+
+    // wrap to usable segment
+    const spanStart = startOffsetPx, spanEnd = startOffsetPx + usableLen;
+    if (state.headS >= spanEnd) state.headS = spanStart + ((state.headS - spanStart) % usableLen);
+    if (state.headS <  spanStart) state.headS = spanEnd - ((spanStart - state.headS) % usableLen);
+
+    // place triangles at fixed arc-length offsets (keeps spacing => no overlap)
+    for (let i=0;i<tris.length;i++){
+      const s = spanStart + ((state.headS - spanStart + i * spacingPx) % usableLen);
+      const d = trianglePathAtS(s);
+      if (d) tris[i].setAttribute("d", d); else tris[i].removeAttribute("d");
+    }
+
+    state.raf = requestAnimationFrame(frame);
+  }
+
+  state.stop = () => {
+    state.running = false;
+    if (state.raf) cancelAnimationFrame(state.raf);
+    if (layer.isConnected) layer.remove();
+    targetGroup.__triangleAnimation = null;
+  };
+
+  targetGroup.__triangleAnimation = state;
+  state.raf = requestAnimationFrame(frame);
+  return state;
+}
+
 function appendPerspectiveTrack(target, points, bounds, options = {}) {
+  if (!target || !Array.isArray(points) || points.length < 2) return null;
 
-	if (!target || !Array.isArray(points) || points.length < 2) return null;
+  const strip = buildPerspectiveStrip(points, bounds);
+  if (!strip || strip.outline.length < 3) return null;
 
-	const strip = buildPerspectiveStrip(points, bounds);
+  // --- build the outline path data ---
+  const outline = strip.outline;
+  const d = outline.map((p, i) => (i === 0 ? "M" : "L") + p.x + " " + p.y).join(" ") + " Z";
 
-	if (!strip || strip.outline.length < 3) return null;
+  // --- ensure a <defs> for clipPath ---
+  const svgRoot = target.ownerSVGElement || target; // supports when target is the SVG itself
+  let defs = svgRoot.querySelector("defs");
+  if (!defs) {
+    defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    svgRoot.insertBefore(defs, svgRoot.firstChild || null);
+  }
 
-	const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  // unique clip id per call (safe for multiple tracks)
+  const clipId = `lane-clip-${Math.random().toString(36).slice(2)}`;
+  const clip = document.createElementNS("http://www.w3.org/2000/svg", "clipPath");
+  clip.setAttribute("id", clipId);
+  const clipPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  clipPath.setAttribute("d", d);
+  clip.appendChild(clipPath);
+  defs.appendChild(clip);
 
-	if (options.role) group.dataset.role = options.role;
+  // --- group (clipped so triangles can't draw outside) ---
+  const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+  if (options.role) group.dataset.role = options.role;
+  group.setAttribute("clip-path", `url(#${clipId})`);
 
-	const outline = strip.outline;
+  // --- filled lane outline ---
+  const fillPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  fillPath.setAttribute("d", d);
+  fillPath.setAttribute("fill", options.fill ?? "#39ff88");
+  fillPath.setAttribute("fill-opacity", (options.fillOpacity ?? 0.35).toString());
+  fillPath.setAttribute("stroke", options.stroke ?? "#39ff88");
+  fillPath.setAttribute("stroke-width", (options.strokeWidth ?? 1.1).toString());
+  fillPath.setAttribute("stroke-linejoin", "round");
+  fillPath.setAttribute("stroke-linecap", "round");
+  fillPath.classList.add("drawn-path");
+  group.appendChild(fillPath);
 
-	let d = "";
+  // --- centerline ---
+  const centerPolyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+  const centerlinePoints =
+    Array.isArray(strip.centerline) && strip.centerline.length > 1 ? strip.centerline : points;
 
-	for (let i = 0; i < outline.length; i++) {
+  centerPolyline.setAttribute("points", centerlinePoints.map(p => `${p.x},${p.y}`).join(" "));
+  centerPolyline.setAttribute("fill", "none");
+  centerPolyline.setAttribute("stroke", options.centerStroke ?? (options.stroke ?? "#39ff88"));
+  centerPolyline.setAttribute("stroke-width", (options.centerStrokeWidth ?? 1).toString());
+  centerPolyline.setAttribute("stroke-linecap", "round");
+  centerPolyline.setAttribute("stroke-linejoin", "round");
+  centerPolyline.setAttribute("vector-effect", "non-scaling-stroke");
+  if (options.centerDash) centerPolyline.setAttribute("stroke-dasharray", options.centerDash);
+  centerPolyline.classList.add("drawn-path");
+  group.appendChild(centerPolyline);
 
-		const cmd = i === 0 ? "M" : "L";
+  // --- triangles (now slower + shorter, and clipped to the lane) ---
+  let triangleAnimation = null;
+  if (options.animateTriangles !== false) {
+    const widthResolver =
+      typeof options.triangleWidthFn === "function"
+        ? options.triangleWidthFn
+        : (pt) => getPerspectiveWidth(pt.y, bounds);
 
-		d += `${cmd}${outline[i].x} ${outline[i].y} `;
+		triangleAnimation = attachTriangleStream(group, centerlinePoints, {
+			count: options.triangleCount,
+			duration: Math.max(400, Number(options.triangleDuration ?? 2600) * 2),
+			fill: options.triangleFill,
+			stroke: options.triangleStroke,
+			strokeWidth: options.triangleStrokeWidth,
+			fillOpacity: options.triangleFillOpacity,
+			widthFn: widthResolver,
+			heightRatio: 0.275,         // half height
+			facing: "up",
+			laneLeft:  strip.leftEdge,
+			laneRight: strip.rightEdge.slice().reverse(),
+			edgeInset: Number.isFinite(options.edgeInset) ? options.edgeInset : 0,
 
-	}
+			// NEW: start later & end earlier (in px along the centerline)
+			startOffsetPx: Number.isFinite(options.triangleStartOffsetPx) ? options.triangleStartOffsetPx : 60,
+			endOffsetPx:   Number.isFinite(options.triangleEndOffsetPx)   ? options.triangleEndOffsetPx   : 90,
+			// (tweak 60/90 if you want more/less headroom)
+		});
 
-	d += "Z";
+  }
 
-	const fillPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  if (options.zIndex != null) group.style.zIndex = options.zIndex;
+  target.appendChild(group);
 
-	fillPath.setAttribute("d", d.trim());
-
-	fillPath.setAttribute("fill", options.fill ?? "#39ff88");
-
-	fillPath.setAttribute("fill-opacity", (options.fillOpacity ?? "0.35").toString());
-
-	fillPath.setAttribute("stroke", options.stroke ?? "#39ff88");
-
-	fillPath.setAttribute("stroke-width", (options.strokeWidth ?? 1.1).toString());
-
-	fillPath.setAttribute("stroke-linejoin", "round");
-
-	fillPath.setAttribute("stroke-linecap", "round");
-
-	fillPath.classList.add("drawn-path");
-
-	group.appendChild(fillPath);
-
-	const centerPolyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-
-	const centerlinePoints = Array.isArray(strip.centerline) && strip.centerline.length > 1 ? strip.centerline : points;
-
-	centerPolyline.setAttribute("points", centerlinePoints.map(p => `${p.x},${p.y}`).join(" "));
-
-	centerPolyline.setAttribute("fill", "none");
-
-	centerPolyline.setAttribute("stroke", options.centerStroke ?? (options.stroke ?? "#39ff88"));
-
-	centerPolyline.setAttribute("stroke-width", (options.centerStrokeWidth ?? 1).toString());
-
-	centerPolyline.setAttribute("stroke-linecap", "round");
-
-	centerPolyline.setAttribute("stroke-linejoin", "round");
-
-	centerPolyline.setAttribute("vector-effect", "non-scaling-stroke");
-
-	if (options.centerDash) {
-
-		centerPolyline.setAttribute("stroke-dasharray", options.centerDash);
-
-	}
-
-	centerPolyline.classList.add("drawn-path");
-
-	group.appendChild(centerPolyline);
-
-	if (options.zIndex != null) {
-
-		group.style.zIndex = options.zIndex;
-
-	}
-
-	target.appendChild(group);
-
-	return { group, strip };
-
+  return { group, strip, animation: triangleAnimation };
 }
 
 function clearOverlayPreview() {
-
-	if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
-
-	svgOverlay?.querySelector('[data-role="path-preview"]')?.remove();
-
+  if (!svgOverlay) svgOverlay = document.getElementById("drawingOverlay");
+  svgOverlay?.querySelectorAll('[data-role="path-preview"]').forEach(n => n.remove());
 }
 
 function renderOverlayPreview(cursorX, cursorY) {
@@ -518,7 +760,9 @@ function renderOverlayPreview(cursorX, cursorY) {
 
 		centerStrokeWidth: 1.8,
 
-		centerDash: "10 10"
+		centerDash: "10 10",
+
+		animateTriangles: false
 
 	});
 
@@ -611,17 +855,22 @@ window.toggleDrawMode = function() {
 }
 
 function handleMouseMove(e) {
+  if (!drawMode || drawingPoints.length === 0 || !canvas) return;
 
-	if (!drawMode || drawingPoints.length === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
 
-	const rect = canvas.getBoundingClientRect();
+  if (handleMouseMove._rafPending) { handleMouseMove._nx = x; handleMouseMove._ny = y; return; }
+  handleMouseMove._rafPending = true;
 
-	const x = e.clientX - rect.left;
-
-	const y = e.clientY - rect.top;
-
-	redrawCanvas(x, y); // live preview line with perspective
-
+  requestAnimationFrame(() => {
+    handleMouseMove._rafPending = false;
+    const nx = handleMouseMove._nx ?? x;
+    const ny = handleMouseMove._ny ?? y;
+    handleMouseMove._nx = handleMouseMove._ny = null;
+    redrawCanvas(nx, ny);
+  });
 }
 
 function handleCanvasClick(e) {
@@ -918,7 +1167,27 @@ function renderPath(showStopOnly = false) {
 
         strokeWidth: 1.1,
 
-        centerStrokeWidth: 1.6
+        centerStrokeWidth: 1.6,
+
+        triangleCount: 5,
+
+        triangleSize: 16,
+
+        triangleSizeScale: 0.34,
+
+        triangleMaxSize: 56,
+
+        triangleDuration: 2600,
+
+        triangleOpacity: 0.55,
+
+        triangleFill: "#ffef75",
+
+        triangleFillOpacity: 0.35,
+
+        triangleStroke: "#ffd93b",
+
+        triangleStrokeWidth: 2.1
 
       });
 
