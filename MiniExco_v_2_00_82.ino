@@ -27,7 +27,10 @@
                    TO DO:
                     b. implement BMP180 barometric pressure sensor readings in UI
                     c. Start working on android APK and API for it.
-         v2.0.81: Reworked interface: making controls expandable.                     
+         v2.0.82: Troubleshooting often client disconnects.           
+         v2.0.81: Reworked interface: making controls expandable.
+                  Draw path script tweaked to have horizon.
+                  Added few more interface buttons and reworked logics for drawing the path.                     
          v2.0.80: Reworked interface: extended video feed                   
          v2.0.78: Added 3D Models into the folder
                   Reworked WiFi connection logics           
@@ -211,9 +214,9 @@
 
 //--------------------------------------------------------------------FIRMWARE INFO----------------------------------------------------------------
 
-  #define FIRMWARE_VERSION "v2.0.81"
+  #define FIRMWARE_VERSION "v2.0.82"
 
-  #define S3_ID "MINIEXCO_S3_V1_02"
+  #define S3_ID "MINIEXCO"
 
 
   // AP credentials (global)
