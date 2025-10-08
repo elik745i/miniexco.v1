@@ -27,7 +27,8 @@
                    TO DO:
                     b. implement BMP180 barometric pressure sensor readings in UI
                     c. Start working on android APK and API for it.
-         v2.0.81: Reworked interface: making controls expandable.                     
+         v2.0.81: Reworked interface: making controls expandable.
+                  Tweaked Draw Path scripts, now user has to set horizon before drawing the path                     
          v2.0.80: Reworked interface: extended video feed                   
          v2.0.78: Added 3D Models into the folder
                   Reworked WiFi connection logics           
