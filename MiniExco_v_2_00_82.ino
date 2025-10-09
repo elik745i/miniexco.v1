@@ -27,10 +27,15 @@
                    TO DO:
                     b. implement BMP180 barometric pressure sensor readings in UI
                     c. Start working on android APK and API for it.
+<<<<<<< HEAD:MiniExco_v_2_00_82.ino
          v2.0.82: Troubleshooting often client disconnects.           
          v2.0.81: Reworked interface: making controls expandable.
                   Draw path script tweaked to have horizon.
                   Added few more interface buttons and reworked logics for drawing the path.                     
+=======
+         v2.0.81: Reworked interface: making controls expandable.
+                  Tweaked Draw Path scripts, now user has to set horizon before drawing the path                     
+>>>>>>> 4d3b4584f674c607a236dc9c8b9d7a430bbcbcf0:MiniExco_v_2_00_81.ino
          v2.0.80: Reworked interface: extended video feed                   
          v2.0.78: Added 3D Models into the folder
                   Reworked WiFi connection logics           
@@ -657,6 +662,16 @@
   const unsigned long blinkInterval = 400;
 
 //-----------------------------------------------------------------------WiFi Globals--------------------------------------------------------------
+
+static uint8_t  netRecoverTier   = 0;
+static uint32_t lastRecoverMs    = 0;
+static uint32_t healthGraceMs    = 60000UL;   // 60s grace after boot
+static uint32_t webIdleTimeoutMs = 600000UL;  // 10 min with no web/WS activity
+
+static inline void resetNetRecovery() {
+  netRecoverTier = 0;
+  lastRecoverMs  = millis();
+}
 
 enum WifiState { WIFI_AP_LOBBY, WIFI_STA_WAIT, WIFI_STA_OK };
 extern WifiState wifiState;
@@ -2772,6 +2787,70 @@ unsigned long wifiConnectStartTime = 0;
 
 //----------------------------------------------------------------------WiFi Stack Management-------------------------------------------------------
 
+
+  static uint8_t  consecStaDrops = 0;
+  static uint32_t lastDropMs     = 0;
+
+  static void onWiFiEvent(WiFiEvent_t event, WiFiEventInfo_t info) {
+    switch (event) {
+      case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+        Serial.printf("[WiFi] CONNECTED (ch=%d)\n", info.wifi_sta_connected.channel);
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+        Serial.printf("[WiFi] GOT_IP %s\n", WiFi.localIP().toString().c_str());
+        // link healthy again → clear all drop/escalation state
+        consecStaDrops = 0;
+        lastDropMs     = 0;
+        resetNetRecovery();
+        break;
+
+      case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
+        const uint32_t now    = millis();
+        const uint8_t  reason = info.wifi_sta_disconnected.reason;
+        Serial.printf("[WiFi] DISCONNECTED reason=%u\n", reason);
+
+        // count quick, back-to-back drops (within 20s)
+        consecStaDrops = (now - lastDropMs < 20000UL) ? consecStaDrops + 1 : 1;
+        lastDropMs     = now;
+
+        // first response: gentle, non-destructive
+        WiFi.reconnect();
+
+        // 3 quick drops → refresh just the web stack
+        if (consecStaDrops == 3) {
+          Serial.println("[WiFi] Repeated drops → refreshing web stack");
+          webServerReboot();
+          // don't resetNetRecovery() here; let the loop do it once health returns
+        }
+
+        // 5+ quick drops → soft STA kick without nuking BT/coex
+        if (consecStaDrops >= 5) {
+          Serial.println("[WiFi] Many drops → soft STA refresh");
+          WiFi.disconnect(false /*erase creds*/, false /*turn off*/);
+          delay(50);
+          WiFi.reconnect();
+          consecStaDrops = 0;
+        }
+        break;
+      }
+
+      case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+        Serial.println("[AP] STA joined");
+        // AP lobby is serving → treat as healthy; clear escalation
+        resetNetRecovery();
+        break;
+
+      case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+        Serial.println("[AP] STA left");
+        break;
+
+      default:
+        break;
+    }
+  }
+
+
   void WIFI_LOG_MODE(wifi_mode_t t, const char* where){
     Serial.printf("[WIFI] mode(%d) at %s (cur=%d) t=%lu\n", (int)t, where, (int)WiFi.getMode(), millis());
     if (WiFi.getMode()!=t) WiFi.mode(t);
@@ -2794,6 +2873,8 @@ unsigned long wifiConnectStartTime = 0;
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM);
     WiFi.setSleep(true);
 
+
+
     showWiFiStep(String("AP:\n") + WiFi.softAPIP().toString());
     wifiState = WIFI_AP_LOBBY;
     ss_announcedStaIp = false;
@@ -2810,8 +2891,10 @@ unsigned long wifiConnectStartTime = 0;
   static void switchToStaOnly() {
     stopApIfRunning();
     if (WiFi.getMode() != WIFI_STA) WiFi.mode(WIFI_STA);
+    esp_wifi_set_inactive_time(WIFI_IF_STA, 30);
     esp_wifi_set_ps(WIFI_PS_MIN_MODEM);  // safe for Bluepad32
     WiFi.setSleep(true);
+
   }
 
   static bool hasAnySavedNetworks() {
@@ -3757,25 +3840,37 @@ unsigned long wifiConnectStartTime = 0;
 
   //#if USE_BLUEPAD32
 
-    void onConnectedController(ControllerPtr ctl) {
-        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-            if (myControllers[i] == nullptr) {
-                myControllers[i] = ctl;
-                DBG_PRINTF("Controller connected! Index=%d\n", i);
-                break;
-            }
-        }
-    }
+  static int connectedPadCount() {
+    int n = 0;
+    for (int i = 0; i < BP32_MAX_GAMEPADS; ++i) if (myControllers[i]) ++n;
+    return n;
+  }
 
-    void onDisconnectedController(ControllerPtr ctl) {
-        for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-            if (myControllers[i] == ctl) {
-                myControllers[i] = nullptr;
-                DBG_PRINTF("Controller disconnected! Index=%d\n", i);
-                break;
-            }
-        }
+  void onConnectedController(ControllerPtr ctl) {
+    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+      if (myControllers[i] == nullptr) {
+        myControllers[i] = ctl;
+        DBG_PRINTF("Controller connected! Index=%d\n", i);
+        break;
+      }
     }
+    // Stop discovery/ads while a pad is connected → less RF contention
+    BP32.enableNewBluetoothConnections(false);
+  }
+
+  void onDisconnectedController(ControllerPtr ctl) {
+    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
+      if (myControllers[i] == ctl) {
+        myControllers[i] = nullptr;
+        DBG_PRINTF("Controller disconnected! Index=%d\n", i);
+        break;
+      }
+    }
+    // If all gone, allow pairing again
+    if (connectedPadCount() == 0) {
+      BP32.enableNewBluetoothConnections(true);
+    }
+  }
 
     // Call mapped action on button edge using the joy cache
     static inline void joyEdgeDispatch(const char* token, bool now, bool& last) {
@@ -7431,6 +7526,8 @@ unsigned long wifiConnectStartTime = 0;
       Serial.setDebugOutput(true);
     #endif
 
+    WiFi.onEvent(onWiFiEvent);
+
     setUpPinModes();
     initHostnames();
 
@@ -7505,102 +7602,167 @@ unsigned long wifiConnectStartTime = 0;
 
     DBG_PRINTF("<<< End of setup: heap=%u, PSRAM=%u\n", ESP.getFreeHeap(), ESP.getFreePsram());
     lastWebActivityMs = millis();   // watchdog timing for server disconnects
+
+    
   }
 
 
 //------------------------------------------------------------------------------LOOP--------------------------------------------------------------//
 
-  void loop() {
-    const uint32_t now = millis();
+void loop() {
+  const uint32_t now = millis();
 
-    // Audio
-    audio.loop();
-    pumpSystemSoundScheduler(now);
+  // Audio
+  audio.loop();
+  pumpSystemSoundScheduler(now);
 
-    #ifdef DEBUG_SERIAL
-      handleSerialCommands();
-    #endif
+  #ifdef DEBUG_SERIAL
+    handleSerialCommands();
+  #endif
 
-    // Telemetry & logging
-    sendBatteryTelemetryIfIdle();
-    sendImuTelemetry();
-    sendFpsTelemetry();
-    if (tlmEnabled) flushTelemetryBufferToSD_Auto();
+  // Telemetry & logging
+  sendBatteryTelemetryIfIdle();
+  sendImuTelemetry();
+  sendFpsTelemetry();
+  if (tlmEnabled) flushTelemetryBufferToSD_Auto();
 
-    // WS housekeeping
-    wsCarInput.cleanupClients();
+  // WS housekeeping
+  wsCarInput.cleanupClients();
 
-    // Animations (your existing)
-    handleAnimationTimers();
+  // Animations (your existing)
+  handleAnimationTimers();
 
-    // ---- The only Wi-Fi brain you need ----
-    handleWifiSimple();
+  // ---- The only Wi-Fi brain you need ----
+  handleWifiSimple();
 
-    // Some lightweight UI flair (optional)
-    static unsigned long lastGearFrame = 0;
-    if (WiFi.status() == WL_CONNECTED) {
-      if (now - lastGearFrame > 200) { animateGears(); lastGearFrame = now; }
-    } else {
-      static unsigned long lastApFrame = 0;
-      if ((WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) && (now - lastApFrame > 200)) {
-        animateAP(); lastApFrame = now;
-      }
-    }
+  // Derive mode flags once (works across cores)
+  wifi_mode_t mode = WiFi.getMode();
+  const bool isSTA = (mode == WIFI_MODE_STA  || mode == WIFI_MODE_APSTA);
+  const bool isAP  = (mode == WIFI_MODE_AP   || mode == WIFI_MODE_APSTA);
 
-    // If you keep this helper, it will speak STA IP once on connect
-    if (WiFi.status() == WL_CONNECTED) {
-      IPAddress currentStaIp = WiFi.localIP();
-      if (currentStaIp != IPAddress(0,0,0,0) && !ss_announcedStaIp && !ss_staSpeechPending) {
-        speakStaIpOrDefer(currentStaIp);
-      }
-    } else {
-      ss_announcedStaIp = false;
-      ss_staSpeechPending = false;
-    }
-
-    // Remainder of your app
-    processReindexTask();
-    pumpTimeSyncTick();
-    streamMicToWebSocket();
-    sendDeviceMediaProgress();
-
-    if (bluepadEnabled) {
-      BP32.update();
-      for (auto ctl : myControllers) {
-        if (ctl && ctl->isConnected() && ctl->hasData()) handleControllerInput(ctl);
-      }
-    }
-
-    // MQTT reconnect / discovery / loop
-    if (mqttCfg.enable) {
-      static unsigned long lastAttempt = 0;
-      if (!mqtt.connected() && WiFi.status() == WL_CONNECTED) {
-        if (now - lastAttempt > 5000) { lastAttempt = now; mqttBegin(); mqttDiscoveryPublished = false; }
-      }
-      if (mqtt.connected() && !mqttDiscoveryPublished) { publishMqttDiscovery(); mqttDiscoveryPublished = true; }
-      if (mqtt.connected()) { publishPeriodicTelemetry(); mqtt.loop(); }
-    }
-
-  
-      // --- Watchdog block (use the same 'now') ---
-      static uint32_t _lastWdTick = 0;
-      if (now - _lastWdTick >= 250) {
-        _lastWdTick = now;
-
-        if (now >= WS_REBOOT_GRACE_MS) {
-          if (hadAnyClientSinceBoot && wsActiveClients == 0) {
-            uint32_t idleSince = (lastWsDisconnectMs > lastWebActivityMs)
-                                  ? lastWsDisconnectMs : lastWebActivityMs;
-            if (now - idleSince >= WS_REBOOT_TIMEOUT_MS) {
-              resetESP();
-            }
-          }
-        }
-      }
-  
-
-    // Camera maintenance
-    runAdaptiveCamera();
-
-    delay(1);
+  // Some lightweight UI flair (optional)
+  static uint32_t lastGearFrame = 0, lastApFrame = 0;
+  if (WiFi.status() == WL_CONNECTED) {
+    if (now - lastGearFrame > 200) { animateGears(); lastGearFrame = now; }
+  } else {
+    if (isAP && (now - lastApFrame > 200)) { animateAP(); lastApFrame = now; }
   }
+
+  // If you keep this helper, it will speak STA IP once on connect
+  if (WiFi.status() == WL_CONNECTED) {
+    IPAddress currentStaIp = WiFi.localIP();
+    if (currentStaIp != IPAddress(0,0,0,0) && !ss_announcedStaIp && !ss_staSpeechPending) {
+      speakStaIpOrDefer(currentStaIp);
+    }
+  } else {
+    ss_announcedStaIp = false;
+    ss_staSpeechPending = false;
+  }
+
+  // Remainder of your app
+  processReindexTask();
+  pumpTimeSyncTick();
+  streamMicToWebSocket();
+  sendDeviceMediaProgress();
+
+  if (bluepadEnabled) {
+    BP32.update();
+    for (auto ctl : myControllers) {
+      if (ctl && ctl->isConnected() && ctl->hasData()) handleControllerInput(ctl);
+    }
+  }
+
+  // MQTT reconnect / discovery / loop
+  if (mqttCfg.enable) {
+    static uint32_t lastAttempt = 0;
+    if (!mqtt.connected() && WiFi.status() == WL_CONNECTED) {
+      if (now - lastAttempt > 5000) { lastAttempt = now; mqttBegin(); mqttDiscoveryPublished = false; }
+    }
+    if (mqtt.connected() && !mqttDiscoveryPublished) { publishMqttDiscovery(); mqttDiscoveryPublished = true; }
+    if (mqtt.connected()) { publishPeriodicTelemetry(); mqtt.loop(); }
+  }
+
+  // ------------------------------------------------------------------
+  // Net health monitor (gentle recovery ladder; no hard reset here)
+  static uint8_t  netTier    = 0;              // 0..2
+  static uint32_t lastTierMs = 0;
+  const  uint32_t graceMs    = 60000UL;        // first 60s after boot
+  const  uint32_t idleTOms   = 600000UL;       // 10 min "web idle" threshold
+
+  if (now >= graceMs && (now - lastTierMs >= 15000UL)) {   // escalate at most every 15s
+    const bool staEnabled   = isSTA;
+    const bool staConnected = staEnabled && (WiFi.status() == WL_CONNECTED);
+    const bool apServing    = isAP;
+
+    const uint32_t lastActivity = (lastWsDisconnectMs > lastWebActivityMs)
+                                  ? lastWsDisconnectMs : lastWebActivityMs;
+    const bool webIdle = (now - lastActivity) > idleTOms;
+
+    const bool healthy = apServing || (staConnected && !webIdle);
+
+    if (healthy) {
+      netTier    = 0;
+      lastTierMs = now;
+    } else {
+      Serial.printf("[WD] Net unhealthy (tier=%u) → escalating\n", netTier);
+      switch (netTier) {
+        case 0:
+          WiFi.reconnect();            // gentle reconnect
+          break;
+        case 1:
+          webServerReboot();           // refresh only the web layer
+          break;
+        case 2:
+          if (isSTA) {
+            WiFi.disconnect(false /*erase*/, false /*wifioff*/);
+            delay(50);
+            WiFi.reconnect();          // soft STA kick
+          }
+          break;
+      }
+      if (netTier < 2) netTier++;
+      lastTierMs = now;
+    }
+  }
+  // ------------------------------------------------------------------
+
+  // ------------------------------------------------------------------
+  // Hard reset ONLY if we've had STA connected at least once,
+  // and then stayed STA-disconnected for >= 60s.
+  static bool     staEverConnected = false;
+  static uint32_t lastStaHealthyMs = millis();   // last time STA was connected
+
+  const bool staEnabled   = isSTA;
+  const bool staConnected = staEnabled && (WiFi.status() == WL_CONNECTED);
+
+  if (staConnected) {
+    staEverConnected = true;
+    lastStaHealthyMs = now;
+  }
+
+  // treat AP with active clients as "healthy" to avoid resets while configuring
+  if (isAP && WiFi.softAPgetStationNum() > 0) {
+    lastStaHealthyMs = now;
+  }
+
+  const uint32_t staHardResetTimeoutMs = 60000UL;  // 60s
+  if (staEverConnected && staEnabled && !staConnected) {
+    if (now - lastStaHealthyMs >= staHardResetTimeoutMs) {
+      Serial.println("[WD] STA disconnected for 60s after having been online → ESP.restart()");
+      ESP.restart();
+    }
+  }
+  // ------------------------------------------------------------------
+
+  // Camera maintenance
+  runAdaptiveCamera();
+
+  // Proactive WS keepalive (helps prune stale NATs)
+  static uint32_t lastPingMs = 0;
+  if (now - lastPingMs > 15000UL) {   // ~15s
+    wsCarInput.pingAll();
+    lastPingMs = now;
+  }
+
+  delay(1);
+}
