@@ -6,6 +6,18 @@
 <title>MiniExco</title>
 <link id="mainStyle" rel="stylesheet" href="/main.css">
 
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "/web/three.module.min.js"
+    }
+  }
+  </script>
+	<style>
+		/* temporary debug outline */
+		.debug-outline { outline: 2px solid red; outline-offset: 2px; }
+		.debug-outline > canvas { border: 1px dashed rgba(0,255,0,0.7); }	
+	</style>	
 </head>
 <body class="noselect">
 
@@ -259,6 +271,13 @@
 
         <div id="magText" style="margin-top:4px; font-size:13px;">Mag: [--, --, --]</div>
       </div>
+
+			<!-- 3D model (bottom-center) -->
+			<div id="model3DWrap"
+					 style="position:absolute; bottom:100px; left:50%; transform:translateX(-50%);
+									width:140px; height:140px; z-index:99999; pointer-events:none;">
+				<canvas id="model3D" width="140" height="140"></canvas>
+			</div>
 
     </div>
 

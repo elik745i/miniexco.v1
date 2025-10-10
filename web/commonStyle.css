@@ -1796,3 +1796,7 @@ transition: clip-path 0.2s ease; /* Optional for smooth shape change */
   background: #325a42;
   border-radius: 4px;
 }
+
+
+#model3DWrap { border-radius: 10px; backdrop-filter: blur(2px); }
+#model3DWrap, #model3D { image-rendering: auto; }

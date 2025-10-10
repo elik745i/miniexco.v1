@@ -28,7 +28,9 @@
                     b. implement BMP180 barometric pressure sensor readings in UI
                     c. Start working on android APK and API for it.
 <<<<<<< HEAD:MiniExco_v_2_00_82.ino
-         v2.0.82: Troubleshooting often client disconnects.           
+         v2.0.82: Troubleshooting often client disconnects.
+                  Added support for gzip on index.html
+                  Added 3D model display for Tilt and Pan.           
          v2.0.81: Reworked interface: making controls expandable.
                   Draw path script tweaked to have horizon.
                   Added few more interface buttons and reworked logics for drawing the path.                     
@@ -896,6 +898,49 @@ unsigned long wifiConnectStartTime = 0;
       void deallocate(T* p, std::size_t) noexcept { free(p); }
   };
   #endif
+
+  // ---- MIME helper for serving static from SD (adds GLB etc.) ----
+  static String mimeOf(const String& p) {
+    if (p.endsWith(".html")) return "text/html";
+    if (p.endsWith(".js"))   return "application/javascript";
+    if (p.endsWith(".css"))  return "text/css";
+    if (p.endsWith(".json")) return "application/json";
+    if (p.endsWith(".svg"))  return "image/svg+xml";
+    if (p.endsWith(".glb"))  return "model/gltf-binary";
+    if (p.endsWith(".wasm")) return "application/wasm";
+    if (p.endsWith(".ico"))  return "image/x-icon";
+    if (p.endsWith(".mp3"))  return "audio/mpeg";
+    if (p.endsWith(".wav"))  return "audio/wav";
+    if (p.endsWith(".png"))  return "image/png";
+    if (p.endsWith(".jpg") || p.endsWith(".jpeg")) return "image/jpeg";
+    return "application/octet-stream";
+  }
+
+  // ---- Serve /path or /path.gz if present ----
+  static bool sendMaybeGz(AsyncWebServerRequest* req, const String& path) {
+    String gz = path + F(".gz");
+
+    if (SD.exists(gz)) {
+      File f = SD.open(gz, FILE_READ);
+      if (!f) return false;
+
+      // Use the 3-arg overload: (File, path, contentType)
+      AsyncWebServerResponse* res = req->beginResponse(f, path, mimeOf(path));
+      res->addHeader(F("Content-Encoding"), F("gzip"));
+      res->addHeader(F("Cache-Control"), F("public, max-age=31536000, immutable"));
+      req->send(res);
+      return true;
+    }
+
+    if (SD.exists(path)) {
+      req->send(SD, path, mimeOf(path));
+      return true;
+    }
+
+    return false;
+  }
+
+
 
 //-----------------------------------------------------------------------PSRAM GLOBALS-------------------------------------------------------------
   // -----------------------------------------------------
@@ -2211,21 +2256,15 @@ unsigned long wifiConnectStartTime = 0;
 //-----------------------------------------------------------------------SD File Management---------------------------------------------------------
 
   void handleRoot(AsyncWebServerRequest *request) {
-    SdLock lock; // 🔒 Protect all SD access in this function
+    SdLock lock; // 🔒 Protect SD access
 
-    // 1. Check /web/index.html (new standard location)
-    if (SD.exists("/web/index.html")) {
-      request->send(SD, "/web/index.html", "text/html");
-      return;
-    }
+    // Try /web/index.html (gz-aware)
+    if (sendMaybeGz(request, "/web/index.html")) return;
 
-    // 2. Fallback: check /index.html (legacy location)
-    if (SD.exists("/index.html")) {
-      request->send(SD, "/index.html", "text/html");
-      return;
-    }
+    // Fallback legacy root
+    if (sendMaybeGz(request, "/index.html")) return;
 
-    // 3. Nothing found, list SD files
+    // List SD card if not found
     String message = "index.html not found on SD card.\n\nFiles on SD card:\n";
     File root = SD.open("/");
     if (root) {
@@ -2238,9 +2277,9 @@ unsigned long wifiConnectStartTime = 0;
     } else {
       message += "(Failed to open SD root)\n";
     }
-
     request->send(404, "text/plain", message);
   }
+
 
 
   String ensureUniqueFilename(String path) {
@@ -2534,8 +2573,9 @@ unsigned long wifiConnectStartTime = 0;
     dir.close();
   }
 
+
   void auditPcmAssets() {
-    const char* req[] = {"0.wav","1.wav","2.wav","3.wav","4.wav","5.wav","6.wav","7.wav","8.wav","9.wav","dot.wav","apaudio.wav","connected.wav"};
+    const char* req[] = {"apaudio.wav","connected.wav"};
     for (auto f : req) {
       String p = String("/web/pcm/") + f;
       if (!SD.exists(p)) {
@@ -2543,6 +2583,7 @@ unsigned long wifiConnectStartTime = 0;
         if (!SD.exists(pu)) DBG_PRINTF("[PCM MISSING] %s (or %s)\n", p.c_str(), pu.c_str());
       }
     }
+
 
     if (SD.exists("/web/pcm/apaudio.wav") || SD.exists("/web/pcm/APAUDIO.WAV")) {
       g_apSpeechFile = "/web/pcm/apaudio.wav";
@@ -2691,45 +2732,40 @@ unsigned long wifiConnectStartTime = 0;
     ss_apSpeechAtMs    = millis() + delayMs;
   }
 
+  // Drop-in: no IP announcement, only a short STA chime.
   void speakStaIpOrDefer(const IPAddress& ip) {
-    ss_staIpToSpeak = ip;
-
+    // If IP is invalid, do nothing (no deferral/queueing).
     if (ip == IPAddress(0,0,0,0)) {
-      DBG_PRINTLN("[WIFI AUDIO] STA IP is 0.0.0.0; deferring speech");
+      DBG_PRINTLN("[WIFI AUDIO] STA IP is 0.0.0.0; skipping announcement");
+      ss_staSpeechPending = false;
       return;
     }
 
-    if (isSystemSoundPlaying && !ss_staSpeechPending) {
-      DBG_PRINTLN("[WIFI AUDIO] Preempting current system sound for STA announcement");
-      cancelSystemSoundQueue();
+    // Stop/clear anything pending so no stray digit clips resume.
+    // (Both calls are safe no-ops if nothing is playing/queued.)
+    if (isSystemSoundPlaying) {
+      audio.stopSong();                 // stop current I2S playback (if your helper exists, keep using it)
     }
+    cancelSystemSoundQueue();           // clear queued system sounds
 
-    if (ss_exclusive || soundIsPlaying()) {
-      String ipStr = ip.toString();
-      DBG_PRINTF("[WIFI AUDIO] Deferring STA speech while busy for %s\n", ipStr.c_str());
-      ss_staSpeechPending = true;
-      ss_announcedStaIp = true;
-      return;
-    }
-
-    ss_exclusive = true;
-    ss_allow     = true;
-    queueHead = queueTail = 0;
-
-    String ipStr = ip.toString();
-    DBG_PRINTF("[WIFI AUDIO] Playing STA connect clip for %s\n", ipStr.c_str());
-
+    // Play only the STA "connected" chime.
+    DBG_PRINTLN("[WIFI AUDIO] Playing STA connect chime (no IP digits)");
     playSystemSound("/web/pcm/connected.wav");
 
-    unsigned long _prevDelay = soundRepeatDelay;
-    soundRepeatDelay = 0;
-    speakIPAddress(ip);
-    soundRepeatDelay = _prevDelay;
-
+    // Make it idempotent: mark as done; no follow-up speech or queue.
     ss_announcedStaIp = true;
-    ss_allow = false;
     ss_staSpeechPending = false;
+
+    // Ensure any exclusivity gates aren’t left latched for old flow.
+    ss_exclusive = false;
+    ss_allow = false;
+
+    // If you previously used a ring buffer for system sounds, make sure pointers are reset
+    // (safe if you have these globals; otherwise remove the two lines below).
+    queueHead = 0;
+    queueTail = 0;
   }
+
 
   void pumpSystemSoundScheduler(uint32_t now) {
     // Fire pending AP speech once loop is alive and queue is idle
@@ -3457,6 +3493,63 @@ unsigned long wifiConnectStartTime = 0;
     }
   }
 
+  static void sendWsInitSnapshot(AsyncWebSocketClient* client) {
+  // Root: {"t":"init","state":{...},"sliders":{...}}
+  // Capacity calc:  root obj (3 keys) + state(12 keys) + sliders(6 keys) + headroom
+  StaticJsonDocument<
+    JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(12) + JSON_OBJECT_SIZE(6) + 64
+  > doc;
+
+  doc["t"] = "init";
+
+  JsonObject st = doc.createNestedObject("state");
+  st["HoldBucket"]     = holdBucket ? 1 : 0;
+  st["HoldAux"]        = holdAux ? 1 : 0;
+  st["Switch"]         = horScreen ? 1 : 0;
+  st["DarkMode"]       = darkMode ? 1 : 0;
+  st["RecordTelemetry"]= tlmEnabled ? 1 : 0;
+  st["SystemSounds"]   = sSndEnabled ? 1 : 0;
+  st["GamepadEnabled"] = bluepadEnabled ? 1 : 0;
+  st["SystemVolume"]   = sSndVolume;
+
+  // Values the UI expects immediately after connect
+  st["AUX"]            = lastAuxValue;
+  st["Bucket"]         = lastBucketValue;
+  st["Beacon"]         = beaconOn ? 1 : 0;
+  st["Emergency"]      = emergencyOn ? 1 : 0;
+
+  // Initial slider zeros (keeps your existing semantics)
+  JsonObject sl = doc.createNestedObject("sliders");
+  sl["Forward"]  = 0;
+  sl["Backward"] = 0;
+  sl["Left"]     = 0;
+  sl["Right"]    = 0;
+  sl["ArmUp"]    = 0;
+  sl["ArmDown"]  = 0;
+
+  // Serialize into a fixed buffer on the stack to avoid heap churn
+  char out[512];
+  size_t n = serializeJson(doc, out, sizeof(out));
+  if (n > 0 && n < sizeof(out)) {
+    client->text(out, n);
+  } else {
+    // Emergency fallback: if somehow oversized, send compact CSV a single time.
+    client->text("INIT,HoldBucket," + String(holdBucket ? 1 : 0) +
+                 ",HoldAux," + String(holdAux ? 1 : 0) +
+                 ",Switch," + String(horScreen ? 1 : 0) +
+                 ",DarkMode," + String(darkMode ? 1 : 0) +
+                 ",RecordTelemetry," + String(tlmEnabled ? 1 : 0) +
+                 ",SystemSounds," + String(sSndEnabled ? 1 : 0) +
+                 ",GamepadEnabled," + String(bluepadEnabled ? 1 : 0) +
+                 ",SystemVolume," + String(sSndVolume) +
+                 ",AUX," + String(lastAuxValue) +
+                 ",Bucket," + String(lastBucketValue) +
+                 ",Beacon," + String(beaconOn ? 1 : 0) +
+                 ",Emergency," + String(emergencyOn ? 1 : 0) +
+                 ",SliderForward,0,SliderBackward,0,SliderLeft,0,SliderRight,0,SliderArmUp,0,SliderArmDown,0");
+  }
+}
+
   void onCarInputWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     switch (type) {
       case WS_EVT_CONNECT: {
@@ -3464,32 +3557,18 @@ unsigned long wifiConnectStartTime = 0;
         lastWsClientIP = client->remoteIP().toString();
         lastWsConnectTime = millis();
 
-        // >>> ADDED: watchdog book-keeping
+        // >>> watchdog book-keeping (preserve)
         wsActiveClients = server->count();
         hadAnyClientSinceBoot = true;
         lastWebActivityMs = millis();
         // <<<
 
-        client->text("HoldBucket," + String(holdBucket ? 1 : 0));
-        client->text("HoldAux," + String(holdAux ? 1 : 0));
-        client->text("Switch," + String(horScreen ? 1 : 0));
-        client->text("DarkMode," + String(darkMode ? 1 : 0));
-        client->text("RecordTelemetry," + String(tlmEnabled ? 1 : 0));
-        client->text("SystemSounds," + String(sSndEnabled ? 1 : 0));
-        client->text("GamepadEnabled," + String(bluepadEnabled ? 1 : 0));
-        client->text("SystemVolume," + String(sSndVolume));
+        // Send a single, batched snapshot instead of ~15 tiny frames
+        sendWsInitSnapshot(client);
 
-        client->text("SliderInit,Forward,0");
-        client->text("SliderInit,Backward,0");
-        client->text("SliderInit,Left,0");
-        client->text("SliderInit,Right,0");
-        client->text("SliderInit,ArmUp,0");
-        client->text("SliderInit,ArmDown,0");
-
-        client->text("AUX," + String(lastAuxValue));
-        client->text("Bucket," + String(lastBucketValue));
-        client->text("Beacon," + String(beaconOn ? 1 : 0));
-        client->text("Emergency," + String(emergencyOn ? 1 : 0));
+        // (Optional) If you want to immediately broadcast beacon/emergency to all clients too:
+        // wsCarInput.textAll(String("Beacon,") + (beaconOn ? 1 : 0));
+        // wsCarInput.textAll(String("Emergency,") + (emergencyOn ? 1 : 0));
       } break;
 
       case WS_EVT_DISCONNECT: {
@@ -7609,160 +7688,97 @@ unsigned long wifiConnectStartTime = 0;
 
 //------------------------------------------------------------------------------LOOP--------------------------------------------------------------//
 
-void loop() {
-  const uint32_t now = millis();
+  void loop() {
+    const uint32_t now = millis();
 
-  // Audio
-  audio.loop();
-  pumpSystemSoundScheduler(now);
+    // Audio
+    audio.loop();
+    pumpSystemSoundScheduler(now);
 
-  #ifdef DEBUG_SERIAL
-    handleSerialCommands();
-  #endif
+    #ifdef DEBUG_SERIAL
+      handleSerialCommands();
+    #endif
 
-  // Telemetry & logging
-  sendBatteryTelemetryIfIdle();
-  sendImuTelemetry();
-  sendFpsTelemetry();
-  if (tlmEnabled) flushTelemetryBufferToSD_Auto();
+    // Telemetry & logging
+    sendBatteryTelemetryIfIdle();
+    sendImuTelemetry();
+    sendFpsTelemetry();
+    if (tlmEnabled) flushTelemetryBufferToSD_Auto();
 
-  // WS housekeeping
-  wsCarInput.cleanupClients();
+    // WS housekeeping
+    wsCarInput.cleanupClients();
 
-  // Animations (your existing)
-  handleAnimationTimers();
+    // Animations (your existing)
+    handleAnimationTimers();
 
-  // ---- The only Wi-Fi brain you need ----
-  handleWifiSimple();
+    // ---- The only Wi-Fi brain you need ----
+    handleWifiSimple();
 
-  // Derive mode flags once (works across cores)
-  wifi_mode_t mode = WiFi.getMode();
-  const bool isSTA = (mode == WIFI_MODE_STA  || mode == WIFI_MODE_APSTA);
-  const bool isAP  = (mode == WIFI_MODE_AP   || mode == WIFI_MODE_APSTA);
-
-  // Some lightweight UI flair (optional)
-  static uint32_t lastGearFrame = 0, lastApFrame = 0;
-  if (WiFi.status() == WL_CONNECTED) {
-    if (now - lastGearFrame > 200) { animateGears(); lastGearFrame = now; }
-  } else {
-    if (isAP && (now - lastApFrame > 200)) { animateAP(); lastApFrame = now; }
-  }
-
-  // If you keep this helper, it will speak STA IP once on connect
-  if (WiFi.status() == WL_CONNECTED) {
-    IPAddress currentStaIp = WiFi.localIP();
-    if (currentStaIp != IPAddress(0,0,0,0) && !ss_announcedStaIp && !ss_staSpeechPending) {
-      speakStaIpOrDefer(currentStaIp);
-    }
-  } else {
-    ss_announcedStaIp = false;
-    ss_staSpeechPending = false;
-  }
-
-  // Remainder of your app
-  processReindexTask();
-  pumpTimeSyncTick();
-  streamMicToWebSocket();
-  sendDeviceMediaProgress();
-
-  if (bluepadEnabled) {
-    BP32.update();
-    for (auto ctl : myControllers) {
-      if (ctl && ctl->isConnected() && ctl->hasData()) handleControllerInput(ctl);
-    }
-  }
-
-  // MQTT reconnect / discovery / loop
-  if (mqttCfg.enable) {
-    static uint32_t lastAttempt = 0;
-    if (!mqtt.connected() && WiFi.status() == WL_CONNECTED) {
-      if (now - lastAttempt > 5000) { lastAttempt = now; mqttBegin(); mqttDiscoveryPublished = false; }
-    }
-    if (mqtt.connected() && !mqttDiscoveryPublished) { publishMqttDiscovery(); mqttDiscoveryPublished = true; }
-    if (mqtt.connected()) { publishPeriodicTelemetry(); mqtt.loop(); }
-  }
-
-  // ------------------------------------------------------------------
-  // Net health monitor (gentle recovery ladder; no hard reset here)
-  static uint8_t  netTier    = 0;              // 0..2
-  static uint32_t lastTierMs = 0;
-  const  uint32_t graceMs    = 60000UL;        // first 60s after boot
-  const  uint32_t idleTOms   = 600000UL;       // 10 min "web idle" threshold
-
-  if (now >= graceMs && (now - lastTierMs >= 15000UL)) {   // escalate at most every 15s
-    const bool staEnabled   = isSTA;
-    const bool staConnected = staEnabled && (WiFi.status() == WL_CONNECTED);
-    const bool apServing    = isAP;
-
-    const uint32_t lastActivity = (lastWsDisconnectMs > lastWebActivityMs)
-                                  ? lastWsDisconnectMs : lastWebActivityMs;
-    const bool webIdle = (now - lastActivity) > idleTOms;
-
-    const bool healthy = apServing || (staConnected && !webIdle);
-
-    if (healthy) {
-      netTier    = 0;
-      lastTierMs = now;
+    // Some lightweight UI flair (optional)
+    static unsigned long lastGearFrame = 0;
+    if (WiFi.status() == WL_CONNECTED) {
+      if (now - lastGearFrame > 200) { animateGears(); lastGearFrame = now; }
     } else {
-      Serial.printf("[WD] Net unhealthy (tier=%u) → escalating\n", netTier);
-      switch (netTier) {
-        case 0:
-          WiFi.reconnect();            // gentle reconnect
-          break;
-        case 1:
-          webServerReboot();           // refresh only the web layer
-          break;
-        case 2:
-          if (isSTA) {
-            WiFi.disconnect(false /*erase*/, false /*wifioff*/);
-            delay(50);
-            WiFi.reconnect();          // soft STA kick
-          }
-          break;
+      static unsigned long lastApFrame = 0;
+      if ((WiFi.getMode() == WIFI_AP || WiFi.getMode() == WIFI_AP_STA) && (now - lastApFrame > 200)) {
+        animateAP(); lastApFrame = now;
       }
-      if (netTier < 2) netTier++;
-      lastTierMs = now;
     }
-  }
-  // ------------------------------------------------------------------
 
-  // ------------------------------------------------------------------
-  // Hard reset ONLY if we've had STA connected at least once,
-  // and then stayed STA-disconnected for >= 60s.
-  static bool     staEverConnected = false;
-  static uint32_t lastStaHealthyMs = millis();   // last time STA was connected
-
-  const bool staEnabled   = isSTA;
-  const bool staConnected = staEnabled && (WiFi.status() == WL_CONNECTED);
-
-  if (staConnected) {
-    staEverConnected = true;
-    lastStaHealthyMs = now;
-  }
-
-  // treat AP with active clients as "healthy" to avoid resets while configuring
-  if (isAP && WiFi.softAPgetStationNum() > 0) {
-    lastStaHealthyMs = now;
-  }
-
-  const uint32_t staHardResetTimeoutMs = 60000UL;  // 60s
-  if (staEverConnected && staEnabled && !staConnected) {
-    if (now - lastStaHealthyMs >= staHardResetTimeoutMs) {
-      Serial.println("[WD] STA disconnected for 60s after having been online → ESP.restart()");
-      ESP.restart();
+    // If you keep this helper, it will speak STA IP once on connect
+    if (WiFi.status() == WL_CONNECTED) {
+      IPAddress currentStaIp = WiFi.localIP();
+      if (currentStaIp != IPAddress(0,0,0,0) && !ss_announcedStaIp && !ss_staSpeechPending) {
+        speakStaIpOrDefer(currentStaIp);
+      }
+    } else {
+      ss_announcedStaIp = false;
+      ss_staSpeechPending = false;
     }
+
+    // Remainder of your app
+    processReindexTask();
+    pumpTimeSyncTick();
+    streamMicToWebSocket();
+    sendDeviceMediaProgress();
+
+    if (bluepadEnabled) {
+      BP32.update();
+      for (auto ctl : myControllers) {
+        if (ctl && ctl->isConnected() && ctl->hasData()) handleControllerInput(ctl);
+      }
+    }
+
+    // MQTT reconnect / discovery / loop
+    if (mqttCfg.enable) {
+      static unsigned long lastAttempt = 0;
+      if (!mqtt.connected() && WiFi.status() == WL_CONNECTED) {
+        if (now - lastAttempt > 5000) { lastAttempt = now; mqttBegin(); mqttDiscoveryPublished = false; }
+      }
+      if (mqtt.connected() && !mqttDiscoveryPublished) { publishMqttDiscovery(); mqttDiscoveryPublished = true; }
+      if (mqtt.connected()) { publishPeriodicTelemetry(); mqtt.loop(); }
+    }
+
+  
+      // --- Watchdog block (use the same 'now') ---
+      static uint32_t _lastWdTick = 0;
+      if (now - _lastWdTick >= 250) {
+        _lastWdTick = now;
+
+        if (now >= WS_REBOOT_GRACE_MS) {
+          if (hadAnyClientSinceBoot && wsActiveClients == 0) {
+            uint32_t idleSince = (lastWsDisconnectMs > lastWebActivityMs)
+                                  ? lastWsDisconnectMs : lastWebActivityMs;
+            if (now - idleSince >= WS_REBOOT_TIMEOUT_MS) {
+              resetESP();
+            }
+          }
+        }
+      }
+  
+
+    // Camera maintenance
+    runAdaptiveCamera();
+
+    delay(1);
   }
-  // ------------------------------------------------------------------
-
-  // Camera maintenance
-  runAdaptiveCamera();
-
-  // Proactive WS keepalive (helps prune stale NATs)
-  static uint32_t lastPingMs = 0;
-  if (now - lastPingMs > 15000UL) {   // ~15s
-    wsCarInput.pingAll();
-    lastPingMs = now;
-  }
-
-  delay(1);
-}

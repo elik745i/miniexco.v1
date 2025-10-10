@@ -92,6 +92,10 @@ window.headingCtx = null;
 window.tiltCtx = null;
 window.pendingIMU = null;
 
+if (window.update3DOrientation) {
+  window.update3DOrientation(window.rollDeg, window.pitchDeg, window.headingDeg);
+}
+
 
 let  lastSentMotorValues = {
     Forward: 0,
@@ -2045,6 +2049,101 @@ function toggleCamera() {
 }
 
 
+// --- 3D viewer bootstrap (lazy module import to keep first paint fast) ---
+(function initMini3D() {
+  const canvas = document.getElementById('model3D');
+  if (!canvas) return;
+
+  // Lazy import of Three + GLTFLoader
+  const threeUrl = '/web/three.module.min.js?v=' + Date.now();
+  const loaderUrl = '/web/GLTFLoader.js?v=' + Date.now();
+
+  import(threeUrl).then(THREE => {
+    import(loaderUrl).then(mod => {
+      const { GLTFLoader } = mod;
+
+      // Scene
+      const scene = new THREE.Scene();
+      scene.background = null; // transparent over your video
+
+      // Camera
+      const camera = new THREE.PerspectiveCamera(35, canvas.width / canvas.height, 0.01, 50);
+      camera.position.set(0.6, 0.4, 1.2);
+
+      // Renderer (on existing canvas)
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+      renderer.setSize(canvas.width, canvas.height, false);
+
+      // Light
+      const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(2, 3, 4);
+      const fill = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(key, fill);
+
+      // Fallback cube while model loads (kept tiny)
+      const fallback = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.2, 0.4),
+        new THREE.MeshStandardMaterial({ metalness: 0.1, roughness: 0.7 })
+      );
+      fallback.visible = true;
+      scene.add(fallback);
+
+      // Load your model (convert FBX → GLB for light deps)
+      let modelRoot = null;
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.load('/model.glb', (gltf) => {
+        modelRoot = gltf.scene;
+        modelRoot.scale.set(0.23, 0.23, 0.23); // tweak per your model
+        scene.add(modelRoot);
+        fallback.visible = false;
+      }, undefined, (err) => {
+        console.warn('GLB load failed, using fallback cube', err);
+      });
+
+      // Orientation smoothing (optional)
+      let smRoll = 0, smPitch = 0, smHeading = 0;
+      const lerp = (a,b,t)=>a+(b-a)*t;
+
+      // Expose a global so your telemetry handler can push fresh angles
+      window.update3DOrientation = function(rollDeg, pitchDeg, headingDeg) {
+        // clamp & store desired angles; we smooth in the render loop
+        window._target3D = {
+          roll: THREE.MathUtils.degToRad(rollDeg||0),
+          pitch: THREE.MathUtils.degToRad(pitchDeg||0),
+          yaw: THREE.MathUtils.degToRad(headingDeg||0)
+        };
+      };
+
+      // Animation loop
+      function tick() {
+        requestAnimationFrame(tick);
+
+        const tgt = window._target3D || { roll:0, pitch:0, yaw:0 };
+        smRoll   = lerp(smRoll,   tgt.roll,   0.18);
+        smPitch  = lerp(smPitch,  tgt.pitch,  0.18);
+        smHeading= lerp(smHeading,tgt.yaw,    0.12); // a bit slower on yaw
+
+        const obj = modelRoot || fallback;
+
+        // Choose your aerospace convention:
+        // Here:  X = pitch (nose up +), Z = roll (right wing down +), Y = yaw/heading (CW +)
+        obj.rotation.set(smPitch, smHeading, smRoll);
+
+        renderer.render(scene, camera);
+      }
+      tick();
+
+      // Keep it crisp on resize / DPR changes
+      const ro = new ResizeObserver(() => {
+        const w = canvas.clientWidth || canvas.width;
+        const h = canvas.clientHeight || canvas.height;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      });
+      ro.observe(canvas);
+    });
+  });
+})();
 
 
 
