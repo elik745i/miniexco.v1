@@ -1,0 +1,436 @@
+2Pac — Gangsta Party (www.lightaudio.ru).mp3,0,9887914
+02. Anna Lunoe – 303.mp3,0,9753991
+01. Sadeness (Part II).flac,0,31135121
+13. Danay Suarez – Viaje En Dub.mp3,0,10276462
+Charlie Puth - Cheating On You.mp3,0,7972594
+Charlie Puth - No More Drama.mp3,0,5605853
+Charlie Puth Jungkook - Left And Right .mp3,0,3439740
+Cherry Blossom 13-06-2021 11-55.mp3,0,4288805
+Cherry Blossom 13-06-2021 11-58.mp3,0,5674967
+Cover.jpg,0,206346
+capture,1,0
+01. 2Chainz feat. Kendrick Lamar – Momma I Hit A Lick.mp3,0,7160621
+1.B.G. The Prince Of Rap - This Beat Is Hot (Club Mix) (www.hotplayer.ru).mp3,0,15640077
+2Pac — Do For Love (www.lightaudio.ru).mp3,0,11266134
+2WEI — Gangsta's Paradise (www.lightaudio.ru).mp3,0,6710379
+03. Bear Grillz feat. Bok Nero – Don’t Stop Get It.mp3,0,6947456
+04. BJ The Chicago Kid feat. Offset – Worryin' Bout Me.mp3,0,9640166
+05. BlocBoy JB – Mercedes.mp3,0,5075993
+06. BlumBros feat. MAKJ – LS6.mp3,0,7523152
+07. Bomba Estereo feat. Systema Solar – Carnavalera.mp3,0,9393564
+08. Bomby feat. Apache – Con Mucho Son.mp3,0,8273407
+09. Bonobo – Linked.mp3,0,14989973
+10. Bumbasee feat. ONEDUO – Tooth And Nail (ONEDUO Remix).mp3,0,6706119
+11. Burna Boy – Collateral Damage.mp3,0,8114573
+12. Chase & Status feat. Kabaka Pyramid – Murder Music.mp3,0,8788574
+14. DeeWunn feat. Leo Justi – Back It Up, Drop It.mp3,0,6937005
+15. Denzel Curry feat. Rick Ross – BIRDZ.mp3,0,8387305
+16. Deorro feat. Henry Fong and Elvis Crespo – Pica.mp3,0,8308960
+17. Diplo – Bubble Up.mp3,0,10201210
+18. Felix Jaehn feat. Breaking Beattz and Brother Leo – LIITA.mp3,0,10255624
+19. French Montana feat. Post Malone and Cardi B feat. Rvssian – Writing On The Wall.mp3,0,8262005
+20. Gente De Zona feat. El Micha – Hazle Completo El Cuento.mp3,0,8989204
+21. Gente De Zona feat. Zion and Lennox – Poquito A Poco.mp3,0,8382112
+Clann — 10. I Hold You (www.lightaudio.ru).mp3,0,22001416
+Coded_Channel_-_My_Life_Is_Going_On_Main_Title_Theme_from_La_Casa_De_Papel_59430130.mp3,0,8737878
+coldplay-feat.-beyonce-hymn-for-the-weekend.mp3,0,9976704
+Daft Punk — Get Lucky (www.lightaudio.ru).mp3,0,14788485
+DAFT PUNK — VERIDIS QUO (www.lightaudio.ru).mp3,0,9559085
+Daft Punk feat. Pharrell Williams, Nile Rodgers — Get Lucky (www.lightaudio.ru).mp3,0,9933889
+David Guetta — Love Don't Let Me Go (www.lightaudio.ru).mp3,0,8677922
+David Guetta — Love Is Gone (www.lightaudio.ru).mp3,0,11651702
+David Guetta — Play Hard (feat. Ne-Yo & Akon) (www.lightaudio.ru).mp3,0,8042624
+David Guetta feat. Sia — Titanium (feat. Sia) (www.lightaudio.ru).mp3,0,9804322
+David Guetta, Sia — Let's Love (www.lightaudio.ru).mp3,0,8027996
+Dido - Just Because (www.hotplayer.ru).mp3,0,9945383
+Dido - Life for Rent (www.hotplayer.ru).mp3,0,8844061
+Dido - Thank You (www.hotplayer.ru).mp3,0,8767783
+Dido - White Flag (www.hotplayer.ru) (1).mp3,0,9571310
+Dido - White Flag (www.hotplayer.ru).mp3,0,8622543
+DJ Danerston — Dangerous (www.lightaudio.ru).mp3,0,10045694
+Don Davis — Matrix Revolutions Main Title (www.lightaudio.ru).mp3,0,3266396
+Don't Call Me Angel - Ariana Grande, Miley Cyrus, Lana Del Rey  (8D AUDIO) (www.hotplayer.ru).mp3,0,2993885
+DOPFunk — I aint mad at cha [2pac, Danny Boy Type Beat] 90s Smooth RnB Hip Hop (www.lightaudio.ru).mp3,0,3865508
+Drenchill feat. Indiiana — Freed from Desire (www.lightaudio.ru).mp3,0,6477367
+Dua_Lipa_-_Physical_68209450.mp3,0,7842420
+Eagles - Hotel California (Live TV Broadcast Recorded at Warner Bros. Studios, Burbank, CA 1994) (www.hotplayer.ru).mp3,0,17631652
+Ed_Sheeran_-_Bad_Habits_73016992.mp3,0,9329311
+EDEN - all you need is love (www.hotplayer.ru).mp3,0,10020615
+EDEN - drugs (www.hotplayer.ru).mp3,0,13550176
+EDEN - Fake Love (www.hotplayer.ru).mp3,0,7481513
+EDEN - rock   roll (www.hotplayer.ru).mp3,0,11845007
+Eden - Sao Visente (www.hotplayer.ru).mp3,0,14796844
+Eden - Shape of My Heart (www.hotplayer.ru).mp3,0,8980942
+EDEN - XO (www.hotplayer.ru).mp3,0,6390697
+Egor_Krid_-_Golos_72777587.mp3,0,7465213
+Egor_Krid_MORGENSHTERN_-_Vesjolaya_pesnya_69139855.mp3,0,7574905
+Ellie Bennett — everything i 0;
+    let showLeft = false;
+    let showRight = false;
+
+    if (Math.abs(y) > Math.abs(x)) {
+      if (y > threshold) {
+        direction = "Backward";  // ⬅️ SWAPPED
+        value = y;
+      } else if (y < -threshold) {
+        direction = "Forward";   // ⬅️ SWAPPED
+        value = -y;
+      }
+    } else {
+      if (x > threshold) {
+        direction = "Right";
+        value = x;
+        showRight = true;
+      } else if (x < -threshold) {
+        direction = "Left";
+        value = -x;
+        showLeft = true;
+      }
+    }
+
+    // Update left/right UI overlay based on direction
+    const leftIndicator = document.getElementById("leftIndicator");
+    const rightIndicator = document.getElementById("rightIndicator");
+
+    if (direction === "Left") {
+      leftIndicator.classList.add("visible", "blinking");
+      rightIndicator.classList.remove("visible", "blinking");
+    } else if (direction === "Right") {
+      rightIndicator.classList.add("visible", "blinking");
+      leftIndicator.classList.remove("visible", "blinking");
+    } else {
+      leftIndicator.classList.remove("visible", "blinking");
+      rightIndicator.classList.remove("visible", "blinking");
+    }
+
+    // Send UDP trigger for turn signals (Left or Right)
+    if (direction === "Left" || direction === "Right") {
+      sendButtonInput("Slider", direction + "," + value);
+    }
+
+    // 🔁 Motor commands
+    if (!direction) {
+      sendMotorSpeed("Forward", 0);
+      sendMotorSpeed("Backward", 0);
+      sendMotorSpeed("Left", 0);
+      sendMotorSpeed("Right", 0);
+      return;
+    }
+
+    sendMotorSpeed(direction, Math.min(255, value));
+  }
+
+  function setJoystickKnob(x, y) {
+    const rect = joystick.getBoundingClientRect();
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const maxDist = rect.width / 2;
+
+    // Normalize to visual scale
+    const dx = (x / 255) * maxDist;
+    const dy = (-y / 255) * maxDist; // negative y = up
+
+    knob.style.left = `${centerX + dx}px`;
+    knob.style.top = `${centerY + dy}px`;
+  }
+
+function realOnLoad() {
+  // --- DARK MODE SYNC: Fetch from backend as soon as modal & DOM are ready ---
+  fetch('/getsettings')
+    .then(r => r.json())
+    .then(data => {
+      if ("darkMode" in data) {
+        window.toggleDarkMode(data.darkMode == 1);
+        // Optionally, sync the checkbox
+        const darkToggle = document.getElementById("darkToggle");
+        if (darkToggle) darkToggle.checked = (data.darkMode == 1);
+      }
+    })
+    .catch(() => {
+      window.toggleDarkMode(localStorage.getItem("darkMode") === "1");
+    });
+
+  // --- Your original code follows ---
+  auxSlider = document.getElementById("AUX");
+  bucketSlider = document.getElementById("Bucket");
+  updateSliderValue("Bucket");
+  updateSliderValue("AUX");
+
+  // Arm slider logic
+  const armSlider = document.getElementById("armVerticalSlider");
+  const armValueLabel = document.getElementById("armVerticalValue");
+  let lastSentArmValue = 0;
+
+  if (armSlider && armValueLabel) {
+    armSlider.addEventListener("input", function() {
+      let value = parseInt(armSlider.value);
+      armValueLabel.textContent = value;
+      if (value !== lastSentArmValue) {
+        sendMotorSpeed("Arm", value);
+        lastSentArmValue = value;
+      }
+    });
+
+    armSlider.addEventListener("change", function() {
+      armSlider.value = 0;
+      armValueLabel.textContent = 0;
+      sendMotorSpeed("Arm", 0);
+      lastSentArmValue = 0;
+    });
+  }
+
+  // Restore emergency state if needed
+  const emergencyBtn = document.getElementById("emergencyBtn");
+  if (emergencyBtn?.classList.contains("active")) {
+    emergencyOn = true;
+    document.getElementById("leftIndicator")?.classList.add("visible", "blinking");
+    document.getElementById("rightIndicator")?.classList.add("visible", "blinking");
+    emergencyBtn.classList.add("blinking");
+  }
+
+  initWebSocket();
+
+  // Keymap fetch
+  fetch("/get_keymap")
+    .then(r => r.json())
+    .then(data => {
+      keymap = {};
+      Object.entries(data).forEach(([action, key]) => {
+        keymap[key.toLowerCase()] = action;
+      });
+    })
+    .catch(err => console.error("❌ Failed to load keymap:", err));
+
+  // Keyboard listeners
+  document.addEventListener("keydown", handleKeyDown);
+  document.addEventListener("keyup", handleKeyUp);
+
+  // FPS placeholder
+  document.getElementById("fpsOverlay").innerText = "FPS: ...";
+
+  // 📷 Set camera to local stream (single-board)
+  const camera = document.getElementById("cameraStream");
+  camera.src = "http://" + location.hostname + ":81/stream";
+  document.getElementById("camStatusOverlay").style.display = "none";
+  console.log("✅ Using local /stream for video (single-board mode)");
+
+  // Lane overlay
+  const laneOverlay = document.getElementById("laneOverlay");
+  if (laneOverlay) {
+    laneOverlay.style.display =
+      localStorage.getItem("laneOverlayVisible") === "true" ? "block" : "none";
+  }
+}
+
+
+
+
+  function updateLedButtonState(isOn) {
+    const btn = document.getElementById("ledToggleBtn");
+    ledOn = isOn;
+
+    if (btn) {
+      if (isOn) {
+        btn.innerText = "💡 LED: ON";
+        btn.style.backgroundColor = "#ffd700";
+        btn.style.color = "black";
+      } else {
+        btn.innerText = "💡 LED: OFF";
+        btn.style.backgroundColor = "#444";
+        btn.style.color = "white";
+      }
+    }
+  }
+
+  function initWebSocket() {
+    websocketCarInput = new WebSocket("ws://" + location.host + "/CarInput");
+    websocketCarInput.onopen = () => console.log("WebSocket Connected");
+    websocketCarInput.onclose = () => setTimeout(initWebSocket, 2000);
+    websocketCarInput.onmessage = function(event) {
+      var message = event.data;
+      var parts = message.split(',');
+      var key = parts[0];
+      var value = parts[1];
+
+      const msg = event.data;
+
+      // Handle IMU data
+      if (msg.startsWith("IMU,")) {
+        //console.log("📨 Raw IMU data received:", msg);  // <--- Add this line for debug
+        const parts = msg.split(",");
+        if (parts.length >= 8) {
+          const [_, h, r, p, mx, my, mz, temp] = parts;
+
+          if (!imuScriptLoaded) {
+            const script = document.createElement("script");
+            script.src = "/telemetryScript.js?v=" + Date.now();
+            script.onload = () => {
+              imuScriptLoaded = true;
+              console.log("✅ IMU telemetry script loaded");
+              handleIMUMessage(h, r, p, mx, my, mz, temp);  // now safe to call
+            };
+            document.body.appendChild(script);
+          } else {
+            handleIMUMessage(h, r, p, mx, my, mz, temp);
+          }
+        }
+        return;
+      }
+
+
+      if (key === "Light") {
+        ledOn = (value == "1");
+        const btn = document.getElementById("ledToggleBtn");
+        if (ledOn) {
+          btn.innerText = "💡 LED: ON";
+          btn.style.backgroundColor = "#ffd700";
+          btn.style.color = "black";
+        } else {
+          btn.innerText = "💡 LED: OFF";
+          btn.style.backgroundColor = "#444"; // more visible on dark theme
+          btn.style.color = "white";
+        }
+
+      }
+
+      if (key === "GPIOCONF") {
+        const pairs = value.split(";");
+        pairs.forEach(p => {
+          const [k, v] = p.split(":");
+          if (k === "Left") document.getElementById("gpioLeft").value = v;
+          if (k === "Right") document.getElementById("gpioRight").value = v;
+          if (k === "Servo") document.getElementById("gpioServo").value = v;
+        });
+      }
+
+      if (key === "FPS") {
+        document.getElementById('fpsOverlay').innerText = "FPS: " + value;
+        lastFPSUpdate = Date.now();  // ✅ use this for camera activity tracking
+      }
+      if (key === "AUX") {
+        auxSlider.value = parseInt(value);
+        updateSliderValue("AUX");
+      }
+
+      if (key === "Bucket") {
+        bucketSlider.value = parseInt(value);
+        updateSliderValue("Bucket");
+      }
+
+
+      if (key === "BATT") {
+        let batteryPercent = parseInt(parts[1]);
+        latestBatteryPercent = batteryPercent;  // ✅ Store globally
+        let voltage = parseFloat(parts[2]);
+        let wifiQuality = parseInt(parts[3]);
+
+        let batteryText = document.getElementById('batteryText');
+        let wifiText = document.getElementById('wifiText');
+        let chargeIcon = document.getElementById('chargeIcon');
+
+        // Update battery
+        batteryText.innerText = "Batt: " + batteryPercent + "% (" + voltage.toFixed(2) + "V)";
+        batteryText.className = "";
+        if (batteryPercent > 70) batteryText.classList.add('batt-green');
+        else if (batteryPercent > 40) batteryText.classList.add('batt-orange');
+        else if (batteryPercent > 20) batteryText.classList.add('batt-red');
+        else batteryText.classList.add('batt-critical');
+
+        // Update Wi-Fi
+        wifiText.innerText = "WiFi: " + wifiQuality + "%";
+        wifiText.className = "";
+        if (wifiQuality > 70) wifiText.classList.add('wifi-green');
+        else if (wifiQuality > 40) wifiText.classList.add('wifi-orange');
+        else wifiText.classList.add('wifi-red');
+
+        // Charger logic is handled in CHARGE
+      }
+
+      if (key === "CHARGE") {
+        const chargeIcon = document.getElementById("chargeIcon");
+
+        if (value === "YES") {
+          chargeIcon.style.display = "inline";
+          chargeIcon.innerText = "⚡";
+
+          let voltage = parseFloat(document.getElementById("batteryText").innerText.match(/\(([\d.]+)V\)/)[1]);
+
+          if (voltage >= 8.4) {
+            chargeIcon.style.animation = "none";
+            chargeIcon.style.color = "lime";
+          } else {
+            chargeIcon.style.animation = "fadeCharge 1.5s infinite";
+            let percent = Math.min(100, Math.max(0, parseInt(document.getElementById("batteryText").innerText.match(/Batt: (\d+)%/)[1])));
+            let red = Math.round(255 - percent * 2.55);
+            let green = Math.round(percent * 2.55);
+            chargeIcon.style.color = `rgb(${red}, ${green}, 0)`;
+          }
+
+        } else if (value === "FAULT") {
+          chargeIcon.style.display = "inline";
+          chargeIcon.innerText = "⚡🚫";
+          chargeIcon.style.animation = "flashRed 1s infinite";
+          chargeIcon.style.color = "red";
+        } else {
+          chargeIcon.style.display = "none";
+        }
+      }
+
+
+
+
+      if (key == "STATS") {
+        let uptimeSecs = parseInt(parts[1]);
+        let chipTemp = parseFloat(parts[2]);
+        let uptimeMins = Math.floor(uptimeSecs / 60);
+        let stats = document.getElementById("statsOverlay");
+
+        stats.innerText = "Uptime: " + uptimeMins + " min, Temp: " + chipTemp + "C";
+        stats.className = "overlay-topright"; // reset base style
+
+        if (chipTemp >= 70) {
+          stats.classList.add("temp-critical");
+        } else if (chipTemp >= 55) {
+          stats.classList.add("temp-warning");
+        }
+      }
+
+      const normalizedKey = key.toUpperCase();
+
+      if (normalizedKey === "TURN_LEFT") {
+        const el = document.getElementById("leftIndicator");
+
+        if (value === "1") {
+          if (!emergencyOn) {
+            el.classList.add("blinking", "visible");
+          }
+        } else {
+          el.classList.remove("blinking");
+          el.classList.remove("visible");
+        }
+      }
+
+
+      if (normalizedKey === "TURN_RIGHT") {
+        const el = document.getElementById("rightIndicator");
+
+        if (value === "1") {
+          if (!emergencyOn) {
+            el.classList.add("blinking", "visible");
+          }
+        } else {
+          el.classList.remove("blinking");
+          el.classList.remove("visible");
+        }
+      }
+
+
+
+
+      if (key === "Beacon") {
+        beaconActive = (value === "1");
+        const btn = document.getElementById("beaconBtn");
+        if (beaconActive) {
+          btn.classList.add("blinking");
+        } else {
+          btn

@@ -1,0 +1,8 @@
+{
+    "chatgpt.openOnStartup":  true,
+    "C_Cpp.default.compileCommands":  "C:/Users/elik/Documents/Arduino/.arduino-vscode/MiniExco_v_2_00_78/compile_commands.json",
+    "C_Cpp.default.browse.path":  [
+                                      "C:/Users/elik/AppData/Local/Arduino15/packages"
+                                ],
+                                "CodeGPT.apiKey": "Ollama"
+}

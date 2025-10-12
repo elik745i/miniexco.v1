@@ -1,0 +1,7 @@
+#line 1 "C:\\Users\\elik\\Documents\\Arduino\\MiniExco_v_2_00_78\\build_cli2\\sketch\\build_cli\\sketch\\.vscode\\settings.json"
+#line 1 "C:\\Users\\elik\\Documents\\Arduino\\MiniExco_v_2_00_78\\build_cli\\sketch\\.vscode\\settings.json"
+#line 1 "C:\\Users\\elik\\Documents\\Arduino\\MiniExco_v_2_00_78\\.vscode\\settings.json"
+{
+    "chatgpt.openOnStartup": true,
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
+}
